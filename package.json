@@ -1,0 +1,35 @@
+{
+  "name": "obichai",
+  "version": "0.0.1",
+  "description": "First browser-first JavaScript only blockchain with Turing incomplete smart contracts",
+  "main": "./dist/index.js",
+  "repository": "git@github.com:jindra12/obichai.git",
+  "author": "jindra12 <jindra12.underdark@gmail.com>",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^24.2.1",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  },
+  "dependencies": {
+    "@chainsafe/libp2p-gossipsub": "^14.1.1",
+    "@chainsafe/libp2p-identify": "^1.0.0",
+    "@chainsafe/libp2p-noise": "^16.1.4",
+    "@chainsafe/libp2p-yamux": "^7.0.4",
+    "@libp2p/pubsub-peer-discovery": "^11.0.2",
+    "@libp2p/tcp": "^10.1.18",
+    "@libp2p/webrtc": "^5.2.23",
+    "@libp2p/websockets": "^9.2.18",
+    "ajv": "^8.17.1",
+    "avsc": "^5.7.9",
+    "bloom-filters": "^3.0.4",
+    "brotli": "^1.3.3",
+    "ethereumjs-util": "^7.1.5",
+    "hash-wasm": "^4.12.0",
+    "is-browser": "^2.1.0",
+    "libp2p": "^2.9.0",
+    "merkletreejs": "^0.5.2",
+    "throw-expression": "^2.1.0",
+    "wrtc": "^0.4.7"
+  }
+}
