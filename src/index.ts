@@ -1,4 +1,4 @@
-import { generateWallet } from "./generate-wallet";
+import { generateWallet } from "./wallet";
 import { Wallet } from "./types";
 
 export const main = (
