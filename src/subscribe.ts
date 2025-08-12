@@ -32,7 +32,7 @@ const initialize = async () => {
 let node: DePromise<ReturnType<typeof createLibp2p>> = null!;
 
 export const Node = {
-    get P2P() {
+    get instance() {
         return new Promise<typeof node>(async resolve => resolve(node ||= await initialize()));
     }
 }

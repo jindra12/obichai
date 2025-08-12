@@ -1,4 +1,4 @@
-export const NUMBER_OF_BLOBS = 50;
-export const NUMBER_OF_TRANSACTIONS = 100;
-export const BYTE_LENGTH_TRANSACTION_COUNT = 2;
+export const NUMBER_OF_BLOBS = 25;
+export const NUMBER_OF_TRANSACTIONS = 200;
+export const BYTE_LENGTH_TRANSACTION_COUNT = 1;
 export const HASH_LENGTH_WITH_INDEX = 33;
