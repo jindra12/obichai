@@ -40,3 +40,10 @@ export type EitherProof = {
 }
 
 export type DePromise<T> = T extends Promise<infer P> ? P : never;
+
+export interface TransactionFormat {
+    from: Buffer;
+    to: Buffer;
+    data: Buffer;
+    note: Buffer;
+}

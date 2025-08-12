@@ -154,6 +154,17 @@ const nftSale = avro.Type.forSchema({
     ],
 });
 
+export const messageType = avro.Type.forSchema({
+    type: "record",
+    name: "Message",
+    fields: [
+        { name: "from", type: address },
+        { name: "to", type: address },
+        { name: "data", type: "bytes" },
+        { name: "note", type: "note" },
+    ]
+});
+
 const serializeType = async (type: avro.Type) => {
     const json = JSON.stringify(type.schema());
     return {

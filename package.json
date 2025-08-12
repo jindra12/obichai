@@ -21,6 +21,7 @@
     "@libp2p/tcp": "^10.1.18",
     "@libp2p/webrtc": "^5.2.23",
     "@libp2p/websockets": "^9.2.18",
+    "@metamask/eth-sig-util": "^8.2.0",
     "ajv": "^8.17.1",
     "avsc": "^5.7.9",
     "bloom-filters": "^3.0.4",
