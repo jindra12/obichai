@@ -7,6 +7,7 @@
   "author": "jindra12 <jindra12.underdark@gmail.com>",
   "license": "MIT",
   "devDependencies": {
+    "@types/lodash": "^4.17.20",
     "@types/node": "^24.2.1",
     "@types/node-persist": "^3.1.8",
     "typescript": "^5.9.2",
@@ -23,7 +24,9 @@
     "@libp2p/websockets": "^9.2.18",
     "@metamask/eth-sig-util": "^8.2.0",
     "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
     "avsc": "^5.7.9",
+    "bignumber.js": "^9.3.1",
     "bloom-filters": "^3.0.4",
     "brotli": "^1.3.3",
     "ethereumjs-util": "^7.1.5",
@@ -31,8 +34,10 @@
     "is-browser": "^2.1.0",
     "libp2p": "^2.9.0",
     "localforage": "^1.10.0",
+    "lodash": "^4.17.21",
     "merkletreejs": "^0.5.2",
     "node-persist": "^4.0.4",
+    "threads": "^1.7.0",
     "throw-expression": "^2.1.0",
     "wrtc": "^0.4.7"
   }

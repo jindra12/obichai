@@ -3,10 +3,10 @@ import { randomBytes } from "crypto";
 import { SignTypedDataVersion, TypedDataUtils } from "@metamask/eth-sig-util";
 
 import { TransactionFormat } from "./types";
-import { messageType } from "./dynamic-types";
+import { messageType } from "./serializer";
 import { compareBuffers } from "./utils";
 
-export const signUserReadable = ({ data, from, note, to }: TransactionFormat) => {
+export const signUserReadable = ({ data, from, note, to, difficulty }: TransactionFormat) => {
     const domain = {
         name: "Obichai",
         version: "1",
@@ -26,7 +26,8 @@ export const signUserReadable = ({ data, from, note, to }: TransactionFormat) =>
             { name: "to", type: "address" },
             { name: "data", type: "bytes" },
             { name: "note", type: "string" },
-            { name: "nonce", type: "uint64" }
+            { name: "nonce", type: "uint64" },
+            { name: "difficulty", type: "bytes" },
         ]
     };
 
@@ -36,6 +37,7 @@ export const signUserReadable = ({ data, from, note, to }: TransactionFormat) =>
         data: `0x${data.toString("hex")}`,
         note: note.toString("utf-8"),
         nonce: Buffer.from(randomBytes(8)).toString("hex"),
+        difficulty: `0x${difficulty.toString("hex")}`
     };
 
     const typedData = {

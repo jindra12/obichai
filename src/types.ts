@@ -41,9 +41,99 @@ export type EitherProof = {
 
 export type DePromise<T> = T extends Promise<infer P> ? P : never;
 
+export type DiffResult = {
+    MAIN: MainBlockType,
+    SIDE: BlobHashType,
+    TRANSACTION: TransactionFormat;
+    PADDING: PaddingFormat;
+};
+
+export interface PaddingFormat {
+    index: bigint,
+    difficulty: Buffer;
+}
+
+export interface BlobHashType {
+    type: Buffer;
+    merkle: Buffer;
+    bloom: Buffer;
+    author: Buffer;
+    difficulty: Buffer;
+    hash: Buffer;
+}
+
+export interface MainBlockType {
+    id: bigint;
+    timestamp: bigint;
+    prevHash: Buffer;
+    author: Buffer;
+    blobs: BlobHashType[];
+    difficulty: Buffer;
+}
+
+export type TransactionValidationFormat<T extends object> = {
+    prev: MainBlockType;
+    block: MainBlockType;
+    queried?: T;
+    current: T;
+};
+
 export interface TransactionFormat {
     from: Buffer;
     to: Buffer;
     data: Buffer;
     note: Buffer;
+    difficulty: Buffer;
 }
+
+export interface CoinType {
+    from: Buffer;
+    to: Buffer;
+    author: Buffer;
+    amount: bigint;
+    nextBalance: bigint;
+    type: "MINT" | "FROM" | "TO" | "ATTESTATION";
+    relatedTo?: Buffer;
+}
+
+export interface TokenType {
+    from: Buffer;
+    to: Buffer;
+    amount: bigint;
+    nextBalance: bigint;
+    type: "MINT" | "FROM" | "TO" | "ATTESTATION";
+    relatedTo?: Buffer;
+}
+
+export interface NftType {
+    author: Buffer;
+    series: Buffer;
+    identity: Buffer;
+    from: Buffer;
+    to: Buffer;
+    type: "MINT" | "TRANSFER" | "ATTESTATION";
+}
+
+export interface SwapType {
+    balance1: bigint;
+    balance2: bigint;
+    token1: Buffer;
+    token2: Buffer;
+    lpToken: Buffer;
+    type: "FUND" | "WITHDRAW" | "SWAP1" | "SWAP2";
+    address: Buffer;
+    relatedTo1: Buffer;
+    relatedTo2: Buffer;
+}
+
+export interface NftSaleType {
+    series: Buffer;
+    identity: Buffer;
+    price: BigInt;
+    token: Buffer;
+    address: Buffer;
+    type: "BUY" | "SELL";
+    relatedTo: Buffer;
+}
+
+export type DifficultyType = "MAIN" | "SIDE" | "TRANSACTION" | "PADDING";

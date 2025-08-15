@@ -5,13 +5,13 @@ export const createBloom = (hashes: Buffer[]) => {
         bloom.add(hash);
         return bloom;
     }, BloomFilter.create(hashes.length, 0.01));
-    return JSON.stringify(bloom.saveAsJSON());
+    return Buffer.from(JSON.stringify(bloom.saveAsJSON()), "utf-8");
 };
 
-export const verifyBloom = (bloom: string, hash: string) => {
+export const verifyBloom = (bloom: Buffer, hash: string) => {
     return (
         (
-            BloomFilter.fromJSON(JSON.parse(bloom))
+            BloomFilter.fromJSON(JSON.parse(bloom.toString("utf-8")))
         ) as BloomFilter
     ).has(hash);
 };

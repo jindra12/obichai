@@ -10,21 +10,6 @@ const sha256 = (data: string) => {
     return Buffer.from(createHash("sha256").update(data).digest("hex"), "hex");
 };
 
-export const createMerkle = (hashes: Buffer[]) => {
-    const leaves = hashes
-        .sort((aValue, bValue) => compareBuffers(aValue, bValue))
-        .map((value, index) => Buffer.concat([
-            value,
-            encodeValue(index),
-        ]));
-
-    const tree = new MerkleTree(leaves, sha256, { sortPairs: false });
-    return {
-        root: tree.getRoot(),
-        leaves: leaves,
-    };
-};
-
 const createPositiveProof = (leaves: Buffer[], hash: Buffer) => {
     const tree = new MerkleTree(
         leaves,
@@ -62,16 +47,31 @@ const createNegativeProof = (leaves: Buffer[], hash: Buffer): NegativeProof => {
     } as const;
 };
 
-export const createProof = (leaves: Buffer[], hash: Buffer): EitherProof => {
+const checkNegativeProofLength = (proof: SubNegation) =>
+    proof.leaf.length === HASH_LENGTH_WITH_INDEX;
+
+export const createMerkle = (hashes: Buffer[]) => {
+    const leaves = hashes
+        .sort((aValue, bValue) => compareBuffers(aValue, bValue))
+        .map((value, index) => Buffer.concat([
+            value,
+            encodeValue(index),
+        ]));
+
+    const tree = new MerkleTree(leaves, sha256, { sortPairs: false });
+    return {
+        root: tree.getRoot(),
+        leaves: leaves,
+    };
+};
+
+export const createMerkleProof = (leaves: Buffer[], hash: Buffer): EitherProof => {
     return leaves.some(leaf => compareBuffers(leaf, hash) === 0)
         ? { positive: createPositiveProof(leaves, hash), negative: undefined }
         : { negative: createNegativeProof(leaves, hash), positive: undefined };
 };
 
-const checkNegativeProofLength = (proof: SubNegation) =>
-    proof.leaf.length === HASH_LENGTH_WITH_INDEX;
-
-export const verifyProof = (root: Buffer, proof: EitherProof) => {
+export const verifyMerkleProof = (root: Buffer, proof: EitherProof) => {
     if (proof.positive) {
         return MerkleTree.verify(proof.positive.proof, proof.positive.leaf, root, sha256);
     }
