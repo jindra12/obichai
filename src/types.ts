@@ -45,12 +45,14 @@ export type DiffResult = {
     MAIN: MainBlockType,
     SIDE: BlobHashType,
     TRANSACTION: TransactionFormat;
-    PADDING: PaddingFormat;
+    PADDING_BIG: PaddingFormat;
+    PADDING_SMALL: PaddingFormat;
 };
 
 export interface PaddingFormat {
     index: bigint,
     difficulty: Buffer;
+    hash: Buffer;
 }
 
 export interface BlobHashType {
@@ -59,7 +61,6 @@ export interface BlobHashType {
     bloom: Buffer;
     author: Buffer;
     difficulty: Buffer;
-    hash: Buffer;
 }
 
 export interface MainBlockType {
@@ -69,6 +70,7 @@ export interface MainBlockType {
     author: Buffer;
     blobs: BlobHashType[];
     difficulty: Buffer;
+    limit: Buffer;
 }
 
 export type TransactionValidationFormat<T extends object> = {
@@ -136,4 +138,24 @@ export interface NftSaleType {
     relatedTo: Buffer;
 }
 
-export type DifficultyType = "MAIN" | "SIDE" | "TRANSACTION" | "PADDING";
+export interface QueryType {
+    proof: ProofPart[];
+    transaction: Buffer;
+}
+
+export interface TypedQueries {
+    type: Buffer;
+    queries: QueryType[];
+}
+
+export interface QueriesType {
+    results: TypedQueries[];
+    padding: PaddingFormat[];
+    hash: Buffer;
+}
+
+export interface MultiBlockQueriesType {
+    queries: QueriesType[];
+}
+
+export type DifficultyType = "MAIN" | "SIDE" | "TRANSACTION" | "PADDING_BIG" | "PADDING_SMALL";

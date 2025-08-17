@@ -7,7 +7,8 @@ const diffTypes: Record<DifficultyType, typeof mainBlockType | typeof blobHashTy
     MAIN: mainBlockType,
     SIDE: blobHashType,
     TRANSACTION: messageType,
-    PADDING: paddingType,
+    PADDING_BIG: paddingType,
+    PADDING_SMALL: paddingType,
 };
 
 let running = false;

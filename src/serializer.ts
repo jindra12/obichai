@@ -38,6 +38,7 @@ export const paddingType = avro.Type.forSchema({
     fields: [
         { name: "index", type: longType },
         { name: "difficulty", type: difficulty },
+        { name: "hash", type: hash },
     ],
 });
 
@@ -63,6 +64,7 @@ export const mainBlockType = avro.Type.forSchema({
         { name: "author", type: address },
         { name: "blobs", type: { type: "array", items: blobHashType } },
         { name: "difficulty", type: difficulty },
+        { name: "limit", type: hash },
     ]
 });
 
@@ -89,6 +91,12 @@ export const nftSaleTypeEnum = avro.Type.forSchema({
     name: "NftSaleType",
     symbols: ["BUY", "SELL"],
 });
+
+export const proofEnum = avro.Type.forSchema({
+    type: "enum",
+    name: "ProofType",
+    symbols: ["left", "right"],
+})
 
 export const coinType = avro.Type.forSchema({
     type: "record",
@@ -170,4 +178,48 @@ export const messageType = avro.Type.forSchema({
         { name: "note", type: "note" },
         { name: "difficulty", type: "bytes" }
     ]
+});
+
+export const proofType = avro.Type.forSchema({
+    type: "record",
+    name: "Proof",
+    fields: [
+        { name: "position", type: proofEnum },
+        { name: "data", type: hash },
+    ],
+});
+
+export const queryType = avro.Type.forSchema({
+    type: "record",
+    name: "Query",
+    fields: [
+        { name: "transaction", type: "bytes" },
+        { name: "proof", type: { type: "array", items: proofType }, default: [] }
+    ]
+});
+
+export const typedQueries = avro.Type.forSchema({
+    type: "record",
+    name: "TypedQuery",
+    fields: [
+        { name: "type", type: hash },
+        { name: "queries", type: { type: "array", items: queryType } },
+    ],
+});
+
+export const queriesType = avro.Type.forSchema({ 
+    type: "record",
+    name: "Queries",
+    fields: [
+        { name: "results", type: { type: "array", items: typedQueries } }
+    ]
+});
+
+export const multiBlockQueriesType = avro.Type.forSchema({
+    type: "record",
+    name: "MultiBlockQueries",
+    fields: [
+        { name: "hash", type: hash },
+        { name: "queries", type: queriesType },
+    ],
 });

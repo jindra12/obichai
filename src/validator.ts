@@ -1,7 +1,10 @@
+import { get } from "typedots";
 import Ajv, { JSONSchemaType, KeywordDefinition } from "ajv";
 import addFormats from "ajv-formats";
-import { BlobHashType, MainBlockType, TransactionValidationFormat } from "./types";
+import uniqBy from "lodash/uniqBy";
+import { BlobHashType, MainBlockType, TokenType } from "./types";
 import { NUMBER_OF_BLOBS } from "./constants";
+import { compareBuffers } from "./utils";
 
 const ajv = new Ajv({ allErrors: true });
 addFormats(ajv);
@@ -17,6 +20,20 @@ const isBufferLength: KeywordDefinition = {
 };
 ajv.addKeyword(isBufferLength);
 
+const equalTo: KeywordDefinition = {
+    keyword: "equalTo",
+    type: ["array", "boolean", "integer", "null", "number", "object", "string"],
+    validate: (path: string, data: any, _, dataCxt) => {
+        const found = (get as any)(dataCxt?.rootData, path);
+        if (data === found) {
+            return true;
+        }
+        return Buffer.isBuffer(data) && Buffer.isBuffer(found) && compareBuffers(data, found) === 0;
+    },
+    errors: false,
+};
+ajv.addKeyword(equalTo);
+
 const isBuffer: KeywordDefinition = {
     keyword: "isBuffer",
     type: "object",
@@ -28,7 +45,6 @@ ajv.addKeyword(isBuffer);
 
 const isBigInt: KeywordDefinition = {
     keyword: "isBigInt",
-    type: "object", 
     schemaType: "boolean",
     validate: (expected: boolean, data: any) => {
         return (typeof data === "bigint") === expected;
@@ -36,6 +52,28 @@ const isBigInt: KeywordDefinition = {
     errors: false,
 };
 ajv.addKeyword(isBigInt);
+
+const transactionType: KeywordDefinition = {
+    keyword: "transactionType",
+    type: "object",
+    schemaType: "string",
+    validate: (expected: string, data: { type: string }) => {
+        return expected === data.type;
+    },
+    errors: false,
+};
+ajv.addKeyword(transactionType);
+
+const uniqByKeyword: KeywordDefinition = {
+    keyword: "uniqBy",
+    type: "array",
+    schemaType: "array",
+    validate: (paths: string[], array: any[]) => {
+        return paths.every(path => array.length === uniqBy(array, (item) => (get as any)(item, path).toString()).length);
+    },
+    errors: false,
+}
+ajv.addKeyword(uniqByKeyword);
 
 const blobHash: JSONSchemaType<BlobHashType> = {
     type: "object",
@@ -65,6 +103,7 @@ const mainBlock: JSONSchemaType<MainBlockType> = {
             items: blobHash,
             minItems: NUMBER_OF_BLOBS,
             maxItems: NUMBER_OF_BLOBS,
+            uniqBy: ["type"],
         },
         difficulty: { isBufferLength: 8 },
         id: { isBigInt: true },
@@ -82,14 +121,102 @@ const mainBlock: JSONSchemaType<MainBlockType> = {
     additionalProperties: false,
 };
 
-const createValidation = <T extends object>(validation: JSONSchemaType<T>) => ({
-    type: "object",
-    properties: {
-        prev: mainBlock,
-        block: mainBlock,
-        current: validation,
-        queried: validation,
+type SubRecord<T extends string, E extends { type: T }> = Record<T, Partial<JSONSchemaType<{ block: MainBlockType, prev: MainBlockType, queried: E, current: E }>>>;
+
+export const createTypeValidation = <T extends string, E extends { type: T }>(
+    validators: Record<T, SubRecord<T, E>>
+) => {
+    return {
+        allOf: [
+            {
+                type: "object",
+                properties: {
+                    prev: mainBlock,
+                    block: mainBlock,
+                },
+                required: ["block", "prev", "current"],
+            },
+            {
+                anyOf: Object.entries<SubRecord<T, E>>(validators).flatMap(([key, currents]) => {
+                    const prevKey = key as T;
+                    return Object.entries(currents).map(([key, validations]) => {
+                        return {
+                            allOf: [
+
+                                {
+                                    type: "object",
+                                    properties: {
+                                        prev: { transactionType: prevKey, },
+                                        current: { transactionType: key },
+                                    }
+                                },
+                                validations,
+                            ]
+                        };
+                    });
+                })
+            }
+        ],
+    } as any as JSONSchemaType<{ block: MainBlockType, prev: MainBlockType, queried: E, current: E }>;
+};
+
+export const coinValidation = createTypeValidation<TokenType["type"], TokenType>({
+    ATTESTATION: {
+        ATTESTATION: {
+            properties: {
+
+            }
+        },
+        FROM: {
+
+        },
+        MINT: {
+
+        },
+        TO: {
+            
+        },
     },
-    required: ["block", "current", "prev"],
-    additionalProperties: false,
-}) as JSONSchemaType<TransactionValidationFormat<T>>;
+    FROM: {
+        ATTESTATION: {
+
+        },
+        FROM: {
+
+        },
+        MINT: {
+
+        },
+        TO: {
+
+        }
+    },
+    MINT: {
+        ATTESTATION: {
+
+        },
+        FROM: {
+
+        },
+        MINT: {
+
+        },
+        TO: {
+
+        },
+    },
+    TO: {
+        ATTESTATION: {
+
+        },
+        FROM: {
+
+        },
+        MINT: {
+
+        },
+        TO: {
+
+        },
+    }
+});

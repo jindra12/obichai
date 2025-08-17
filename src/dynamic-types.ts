@@ -1,28 +1,42 @@
 import avro from "avsc";
 import { keccak } from "hash-wasm";
-import { Schema } from "ajv";
+import { JSONSchemaType } from "ajv";
+import { ExtractObjectPaths } from "typedots";
 import { Storage } from "./storage";
 import { DePromise } from "./types";
-import { longType, nftSale, nftType, swapType, tokenType, coinType } from "./serializer";
+import { longType, nftSale, nftType, swapType, tokenType, coinType } from "./serializer"
 
-const serializeType = async (type: avro.Type, rules: Schema | null = null) => {
-    const json = JSON.stringify([type.schema(), rules]);
+const serializeType = async <T extends {}>(type: avro.Type, rules: JSONSchemaType<T> | null = null, query: ExtractObjectPaths<T>[] = []) => {
+    const json = JSON.stringify([type.schema(), rules, query]);
     return {
         json,
         hash: await keccak(json, 256),
     };
 };
 
-const deserializeType = (type: string) => {
-    const [schema, rule] = JSON.parse(type) as [avro.Schema, Schema]
+const deserializeType = <T>(type: string) => {
+    const [schema, rule, query] = JSON.parse(type) as [avro.Schema, JSONSchemaType<T>, ExtractObjectPaths<T>[]]
     return [
         avro.Type.forSchema(schema, { registry: { "long": longType } }),
         rule,
+        query,
     ];
 };
 
 const addType = (serialized: DePromise<ReturnType<typeof serializeType>>) => {
     Storage.instance.setItem(serialized.hash, serialized.json);
+};
+
+const getType = async <T extends {}>(hash: Buffer) => {
+    const key = hash.toString("hex");
+    const [schema, rules, query] = JSON.parse(
+        await Storage.instance.getItem(key) as string,
+    ) as [
+        avro.Schema,
+        JSONSchemaType<T>,
+        ExtractObjectPaths<T>[],
+    ];
+    return [schema, rules, query] as const;
 };
 
 const initializeTypes = async () => {
@@ -36,6 +50,7 @@ const initializeTypes = async () => {
         serializeType,
         deserializeType,
         addType,
+        getType,
     };
 };
 

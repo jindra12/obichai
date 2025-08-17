@@ -39,6 +39,7 @@
     "node-persist": "^4.0.4",
     "threads": "^1.7.0",
     "throw-expression": "^2.1.0",
+    "typedots": "^0.1.0",
     "wrtc": "^0.4.7"
   }
 }

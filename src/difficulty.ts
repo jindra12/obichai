@@ -1,11 +1,10 @@
 import BigNumber from "bignumber.js";
-import { spawn, Worker } from "threads";
 import { randomBytes } from "crypto";
-import shuffle from "lodash/shuffle";
 import { Storage } from "./storage";
-import { DifficultyType, DiffResult } from "./types";
-import { DEFAULT_DIFFICULTY, DIFFICULTY_COEFS, DIFFICULTY_SIZE, EXPECTED_TIME_IN_MILLIS, GIVE_UP_HASHING } from "./constants";
-import { WorkerType } from "./worker";
+import { DifficultyType, DiffResult, MainBlockType } from "./types";
+import { DEFAULT_DIFFICULTY, DIFFICULTY_COEFS, DIFFICULTY_SIZE, EXPECTED_TIME_IN_MILLIS } from "./constants";
+import { mainBlockType } from "./serializer";
+import { getWorker, workers } from "./pool";
 
 export const setDifficulty = async (type: DifficultyType, difficulty: BigInt) => {
     await Storage.instance.setItem(type, difficulty);
@@ -16,7 +15,7 @@ export const getDifficulty = async (type: DifficultyType) => {
     return difficulty ? BigInt(difficulty) : DEFAULT_DIFFICULTY;
 };
 
-export const recomputeDifficulty = async (type: DifficultyType, timestamps: bigint[]) => {
+export const recomputeDifficulty = async (difficulty: bigint, timestamps: bigint[]) => {
     const ratios = timestamps.reduce((ratios: BigNumber[], current, index) => {
         if (index !== 0) {
             const prev = timestamps[index - 1]!;
@@ -26,27 +25,28 @@ export const recomputeDifficulty = async (type: DifficultyType, timestamps: bigi
                 .div(BigNumber(current)
                     .minus(prev)
                 )
-                .multipliedBy(DIFFICULTY_COEFS[type])
             ratios.push(ratio);
         }
         return ratios;
     }, []);
     const ratio = ratios.reduce((ratio, item) => ratio.plus(item), BigNumber(0)).div(ratios.length);
-    const next = BigNumber(await getDifficulty(type)).multipliedBy(
+    const next = BigNumber(difficulty).multipliedBy(
         ratio,
     );
     return BigInt(next.integerValue(BigNumber.ROUND_HALF_UP).toFixed(0));
 };
 
-const workers: WorkerType[] = [];
-
-export const initPool = async (count: number) => {
-    for (let i = 0; i < count; i++) {
-        workers.push((await spawn(new Worker("./worker"), { timeout: GIVE_UP_HASHING })) as any as WorkerType);
-    }
+export const addLimit = async (main: Buffer) => {
+    const block: MainBlockType = mainBlockType.fromBuffer(main);
+    block.limit = Buffer.from((await getDifficulty("MAIN")).toString(16), "hex");
+    return mainBlockType.toBuffer(block);
 };
 
-export const getWorker = () => shuffle(workers)[0]!
+export const getLimitFromBlock = (main: Buffer, type: DifficultyType) => {
+    const block: MainBlockType = mainBlockType.fromBuffer(main);
+    const limit = BigInt(`0x${block.limit}`);
+    return limit * DIFFICULTY_COEFS[type];
+};
 
 export const computeDifficulty = async <T extends DifficultyType>(buffer: Buffer, type: T) => {    
     const difficulty = await getDifficulty(type);

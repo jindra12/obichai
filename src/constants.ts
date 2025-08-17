@@ -9,8 +9,9 @@ export const DEFAULT_DIFFICULTY = 0xffffffffffffffffffffffffffffffffffffffffffff
 export const EXPECTED_TIME_IN_MILLIS = 60 * 1000;
 export const DIFFICULTY_COEFS: Record<DifficultyType, bigint> = {
     MAIN: 1n,
+    PADDING_BIG: 2n,
     SIDE: 4n,
-    PADDING: 8n,
+    PADDING_SMALL: 8n,
     TRANSACTION: 16n,
 };
 export const GIVE_UP_HASHING = 60 * 1000;
