@@ -70,6 +70,7 @@ export interface MainBlockType {
     author: Buffer;
     blobs: BlobHashType[];
     difficulty: Buffer;
+    padding: PaddingFormat[];
     limit: Buffer;
 }
 
@@ -146,6 +147,7 @@ export interface QueryType {
 export interface TypedQueries {
     type: Buffer;
     queries: QueryType[];
+    padding: bigint;
 }
 
 export interface QueriesType {

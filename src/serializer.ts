@@ -64,6 +64,7 @@ export const mainBlockType = avro.Type.forSchema({
         { name: "author", type: address },
         { name: "blobs", type: { type: "array", items: blobHashType } },
         { name: "difficulty", type: difficulty },
+        { name: "padding", type: paddingType },
         { name: "limit", type: hash },
     ]
 });
@@ -203,6 +204,7 @@ export const typedQueries = avro.Type.forSchema({
     name: "TypedQuery",
     fields: [
         { name: "type", type: hash },
+        { name: "padding", type: longType },
         { name: "queries", type: { type: "array", items: queryType } },
     ],
 });

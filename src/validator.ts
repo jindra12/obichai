@@ -108,6 +108,7 @@ const mainBlock: JSONSchemaType<MainBlockType> = {
         difficulty: { isBufferLength: 8 },
         id: { isBigInt: true },
         prevHash: { isBufferLength: 32 },
+        padding: { isBigInt: true },
         timestamp: { isBigInt: true },
     } as JSONSchemaType<MainBlockType>["properties"],
     required: [
@@ -116,6 +117,7 @@ const mainBlock: JSONSchemaType<MainBlockType> = {
         "difficulty",
         "id",
         "prevHash",
+        "padding",
         "timestamp",
     ],
     additionalProperties: false,

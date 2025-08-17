@@ -1,14 +1,9 @@
-import { createHash } from "crypto";
 import { MerkleTree } from "merkletreejs";
 import { EitherProof, NegativeProof, SubNegation } from "./types";
 import { BYTE_LENGTH_TRANSACTION_COUNT, HASH_LENGTH_WITH_INDEX, NUMBER_OF_TRANSACTIONS } from "./constants";
-import { compareBuffers } from "./utils";
+import { compareBuffers, sha256 } from "./utils";
 
 const encodeValue = (value: number) => Buffer.from(value.toString(16).padStart(BYTE_LENGTH_TRANSACTION_COUNT * 2, "0"), "hex");
-
-const sha256 = (data: string) => {
-    return Buffer.from(createHash("sha256").update(data).digest("hex"), "hex");
-};
 
 const createPositiveProof = (leaves: Buffer[], hash: Buffer) => {
     const tree = new MerkleTree(

@@ -57,7 +57,7 @@ export const verifyArgon = async <T extends DifficultyType>(
         hashLength: 32,
         outputType: "binary"
     }));
-    return [BigInt(`0x${hashValue}`) < difficulty, block] as const;
+    return [BigInt(`0x${hashValue}`) < difficulty, block, hashValue] as const;
 }
 
 export const stopArgon = () => {
