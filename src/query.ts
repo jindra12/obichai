@@ -1,17 +1,32 @@
-import { verifyArgon } from "./argon";
+import { getArgon, verifyArgon } from "./argon";
 import { NUMBER_OF_BLOBS, NUMBER_OF_TRANSACTIONS } from "./constants";
 import { getDifficulty } from "./difficulty";
+import { Types } from "./dynamic-types";
+import { storeItems } from "./indexer";
 import { createMerkle, verifyMerkleProof } from "./merkle";
 import { blobHashType, mainBlockType, paddingType } from "./serializer";
 import { Storage } from "./storage";
 import { MainBlockType, MultiBlockQueriesType, PaddingFormat, QueriesType } from "./types";
-import { blobSha256, compareBuffers, sha256CompactKey } from "./utils";
+import { blobSha256, compareBuffers } from "./utils";
+
+export const getBlockHashes = async (blocks: Buffer[]) => {
+    const lastHash = await getArgon(blocks[blocks.length - 1]!)
+    const hashes: Buffer[] = [];
+    for (let i = 1; i < blocks.length; i++) {
+        const block: MainBlockType = mainBlockType.fromBuffer(blocks[i]!);
+        hashes.push(block.prevHash)
+    }
+    hashes.push(lastHash);
+    return hashes;
+};
 
 export const storeMainBlocks = async (blocks: Buffer[]) => {
     const storage = Storage.instance;
-    const pairs = blocks.map(block => [sha256CompactKey(block), block] as const);
-    await Promise.all(pairs.map(async ([key, value]) => storage.setItem(key, value.toString("base64"))));
-    return pairs.map(([key]) => key);
+    const hashes = await getBlockHashes(blocks);
+    for (let i = 0; i < blocks.length; i++) {
+        await storage.setItem(hashes[i]!.toString("base64"), blocks[i]!.toString("base64"));
+    }
+    return hashes;
 };
 
 export const getBlock = async (hash: string | Buffer) => {
@@ -19,14 +34,28 @@ export const getBlock = async (hash: string | Buffer) => {
     return Buffer.from(await Storage.instance.getItem(key) as string, "base64");
 };
 
-export const getHash = (block: Buffer | MainBlockType) => {
-    return sha256CompactKey(Buffer.isBuffer(block) ? block : mainBlockType.toBuffer(block));
+export const storeQueries = async (
+    queries: QueriesType,
+) => {
+    const types = await Types.instance;
+    for (let i = 0; i < queries.results.length; i++) {
+        const result = queries.results[i]!;
+        const {
+            schema,
+            query,
+        } = await types.getType(result.type);
+        const items: Buffer[] = [];
+        for (let j = 0; j < result.queries.length; j++) {
+            items.push(result.queries[j]!.transaction);
+        }
+        await storeItems(items, schema, query);
+    }
 };
 
-export const validateQuery = async (block: MainBlockType, queries: QueriesType) => {
-    if (getHash(block) !== queries.hash.toString("base64")) {
-        return false;
-    }
+export const validateQuery = async (
+    block: MainBlockType,
+    queries: QueriesType,
+) => {
     for (let i = 0; i < queries.results.length; i++) {
         const blob = block.blobs[i]!;
         const query = queries.results[i]!;
@@ -88,7 +117,6 @@ export const validateMainDifficulty = async (block: Buffer, prevHash?: Buffer, p
     }
 
     const main = await getDifficulty("MAIN");
-    const side = await getDifficulty("SIDE");
     const [isValid, nextBlock, nextHash] = await verifyArgon(block, "MAIN", main);
     
     if (!isValid) {
@@ -102,7 +130,7 @@ export const validateMainDifficulty = async (block: Buffer, prevHash?: Buffer, p
     }
     for (let i = 0; i < parsed.blobs.length; i++) {
         const blob = parsed.blobs[i]!;
-        const [isValid] = await verifyArgon(blobHashType.toBuffer(blob), "SIDE", side);
+        const [isValid] = await getArgon(blobHashType.toBuffer(blob));
         if (!isValid) {
             return [false] as const;
         }
@@ -130,7 +158,7 @@ export const validateMainsDifficulty = async (blocks: Buffer[]) => {
 export const parallelValidation = async (
     blocks: Buffer[],
     splitBy: number,
-    validate: (blocks: Buffer[]) => Promise<boolean>,
+    validate: (blocks: Buffer[], index: number) => Promise<boolean>,
 ) => {
     const splits: Buffer[][] = [];
     const add = (block: Buffer) => {
@@ -155,5 +183,5 @@ export const parallelValidation = async (
             return false;
         }
     }
-    return (await Promise.all(splits.map(b => validate(b)))).every(Boolean);
+    return (await Promise.all(splits.map((b, i) => validate(b, i)))).every(Boolean);
 };

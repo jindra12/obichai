@@ -2,7 +2,7 @@ import { get } from "typedots";
 import Ajv, { JSONSchemaType, KeywordDefinition } from "ajv";
 import addFormats from "ajv-formats";
 import uniqBy from "lodash/uniqBy";
-import { BlobHashType, MainBlockType, TokenType } from "./types";
+import { BlobHashType, MainBlockType, PaddingFormat, TokenType } from "./types";
 import { NUMBER_OF_BLOBS } from "./constants";
 import { compareBuffers } from "./utils";
 
@@ -94,6 +94,20 @@ const blobHash: JSONSchemaType<BlobHashType> = {
     additionalProperties: false,
 };
 
+const paddingType: JSONSchemaType<PaddingFormat> = {
+    type: "object",
+    properties: {
+        difficulty: { isBufferLength: 8 },
+        hash: { isBufferLength: 32 },
+        index: { isBigInt: true },
+    } as JSONSchemaType<BlobHashType>["properties"],
+    required: [
+        "difficulty",
+        "hash",
+        "index",
+    ],
+};
+
 const mainBlock: JSONSchemaType<MainBlockType> = {
     type: "object",
     properties: {
@@ -101,14 +115,18 @@ const mainBlock: JSONSchemaType<MainBlockType> = {
         blobs: {
             type: "array",
             items: blobHash,
-            minItems: NUMBER_OF_BLOBS,
+            maxItems: NUMBER_OF_BLOBS,
+            uniqBy: ["type"],
+        },
+        padding: {
+            type: "array",
+            items: paddingType,
             maxItems: NUMBER_OF_BLOBS,
             uniqBy: ["type"],
         },
         difficulty: { isBufferLength: 8 },
         id: { isBigInt: true },
         prevHash: { isBufferLength: 32 },
-        padding: { isBigInt: true },
         timestamp: { isBigInt: true },
     } as JSONSchemaType<MainBlockType>["properties"],
     required: [

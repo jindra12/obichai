@@ -60,6 +60,21 @@ export const verifyArgon = async <T extends DifficultyType>(
     return [BigInt(`0x${hashValue}`) < difficulty, block, hashValue] as const;
 }
 
+export const getArgon = async (
+    transaction: Buffer,
+) => {
+    const hashValue = Buffer.from(await argon2id({
+        password: transaction,
+        salt,
+        parallelism: 1,
+        iterations: 1,
+        memorySize: 65536,
+        hashLength: 32,
+        outputType: "binary"
+    }));
+    return hashValue;
+}
+
 export const stopArgon = () => {
     running = false;
 };

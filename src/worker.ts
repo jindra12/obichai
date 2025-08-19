@@ -1,11 +1,12 @@
 import { expose } from "threads";
-import { stopArgon, hashArgon, verifyArgon } from "./argon";
+import { stopArgon, hashArgon, verifyArgon, getArgon } from "./argon";
 import { createBloom, verifyBloom } from "./bloom";
 import { createMerkle, createMerkleProof, verifyMerkleProof } from "./merkle";
 import { validateMainsDifficulty, validateMultiBlockQuery, validateQuery } from "./query";
 
 const worker = {
     hashArgon,
+    getArgon,
     stopArgon,
     verifyArgon,
     createBloom,

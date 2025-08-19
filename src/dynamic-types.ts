@@ -1,42 +1,47 @@
 import avro from "avsc";
-import { keccak } from "hash-wasm";
 import { JSONSchemaType } from "ajv";
 import { ExtractObjectPaths } from "typedots";
 import { Storage } from "./storage";
 import { DePromise } from "./types";
 import { longType, nftSale, nftType, swapType, tokenType, coinType } from "./serializer"
+import { sha256CompactKey } from "./utils";
 
-const serializeType = async <T extends {}>(type: avro.Type, rules: JSONSchemaType<T> | null = null, query: ExtractObjectPaths<T>[] = []) => {
-    const json = JSON.stringify([type.schema(), rules, query]);
+const serializeType = async <T extends {}>(
+    type: avro.Type,
+    rules: JSONSchemaType<T> | null = null,
+    query: ExtractObjectPaths<T>[] = [],
+    unique: ExtractObjectPaths<T>[] = [],
+) => {
+    const json = JSON.stringify({ schema: type.schema(), rules, query, unique });
     return {
         json,
-        hash: await keccak(json, 256),
+        hash: sha256CompactKey(json),
     };
 };
 
-const deserializeType = <T>(type: string) => {
-    const [schema, rule, query] = JSON.parse(type) as [avro.Schema, JSONSchemaType<T>, ExtractObjectPaths<T>[]]
-    return [
-        avro.Type.forSchema(schema, { registry: { "long": longType } }),
-        rule,
+const deserializeType = <T extends {} = Record<string, string>>(type: string) => {
+    const { schema, rules, query, unique } = JSON.parse(type) as {
+        schema: avro.Schema,
+        rules: JSONSchemaType<T>,
+        query: ExtractObjectPaths<T>[],
+        unique: ExtractObjectPaths<T>[],
+    };
+    return {
+        schema: avro.Type.forSchema(schema, { registry: { "long": longType } }),
+        rules,
         query,
-    ];
+        unique,
+    };
 };
 
 const addType = (serialized: DePromise<ReturnType<typeof serializeType>>) => {
     Storage.instance.setItem(serialized.hash, serialized.json);
 };
 
-const getType = async <T extends {}>(hash: Buffer) => {
-    const key = hash.toString("hex");
-    const [schema, rules, query] = JSON.parse(
-        await Storage.instance.getItem(key) as string,
-    ) as [
-        avro.Schema,
-        JSONSchemaType<T>,
-        ExtractObjectPaths<T>[],
-    ];
-    return [schema, rules, query] as const;
+const getType = async <T extends {} = Record<string, string>>(hash: Buffer | string) => {
+    const key = typeof hash === "string" ? hash : hash.toString("base64");
+    const value = await Storage.instance.getItem(key) as string;
+    return deserializeType<T>(value);
 };
 
 const initializeTypes = async () => {
