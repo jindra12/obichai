@@ -147,13 +147,13 @@ export interface QueryType {
 export interface TypedQueries {
     type: Buffer;
     queries: QueryType[];
-    padding: bigint;
+    padding: PaddingFormat[];
 }
 
 export interface QueriesType {
     results: TypedQueries[];
-    padding: PaddingFormat[];
     hash: Buffer;
+    index: bigint;
 }
 
 export interface MultiBlockQueriesType {

@@ -2,32 +2,12 @@ import { getArgon, verifyArgon } from "./argon";
 import { NUMBER_OF_BLOBS, NUMBER_OF_TRANSACTIONS } from "./constants";
 import { getDifficulty } from "./difficulty";
 import { Types } from "./dynamic-types";
-import { storeItems } from "./indexer";
+import { pushItems } from "./indexer";
 import { createMerkle, verifyMerkleProof } from "./merkle";
 import { blobHashType, mainBlockType, paddingType } from "./serializer";
 import { Storage } from "./storage";
 import { MainBlockType, MultiBlockQueriesType, PaddingFormat, QueriesType } from "./types";
 import { blobSha256, compareBuffers } from "./utils";
-
-export const getBlockHashes = async (blocks: Buffer[]) => {
-    const lastHash = await getArgon(blocks[blocks.length - 1]!)
-    const hashes: Buffer[] = [];
-    for (let i = 1; i < blocks.length; i++) {
-        const block: MainBlockType = mainBlockType.fromBuffer(blocks[i]!);
-        hashes.push(block.prevHash)
-    }
-    hashes.push(lastHash);
-    return hashes;
-};
-
-export const storeMainBlocks = async (blocks: Buffer[]) => {
-    const storage = Storage.instance;
-    const hashes = await getBlockHashes(blocks);
-    for (let i = 0; i < blocks.length; i++) {
-        await storage.setItem(hashes[i]!.toString("base64"), blocks[i]!.toString("base64"));
-    }
-    return hashes;
-};
 
 export const getBlock = async (hash: string | Buffer) => {
     const key = typeof hash === "string" ? hash : hash.toString("base64");
@@ -48,13 +28,38 @@ export const storeQueries = async (
         for (let j = 0; j < result.queries.length; j++) {
             items.push(result.queries[j]!.transaction);
         }
-        await storeItems(items, schema, query);
+        await pushItems(
+            items,
+            schema,
+            query,
+            queries.hash,
+            result.type,
+            queries.index,
+        );
     }
+};
+
+export const validatePadding = async (paddings: (PaddingFormat | Buffer)[], hash: Buffer, type: "PADDING_BIG" | "PADDING_SMALL") => {
+    const difficulty = await getDifficulty(type);
+    for (let i = 0; i < paddings.length; i++) {
+        const item = paddings[i]!;
+        const padding: PaddingFormat = Buffer.isBuffer(item) ? paddingType.fromBuffer(item) : item;
+        if (padding.index !== BigInt(i)) {
+            return false;
+        }
+        padding.hash = hash;
+        const [isValid] = await verifyArgon(paddingType.toBuffer(padding), type, difficulty);
+        if (!isValid) {
+            return false;
+        }
+    }
+    return true;
 };
 
 export const validateQuery = async (
     block: MainBlockType,
     queries: QueriesType,
+    isFull: boolean,
 ) => {
     for (let i = 0; i < queries.results.length; i++) {
         const blob = block.blobs[i]!;
@@ -64,7 +69,13 @@ export const validateQuery = async (
         }
         const full = query.queries.length === NUMBER_OF_TRANSACTIONS;
         const hashes = await blobSha256(query.queries.map(q => q.transaction));
+        if (isFull && !full) {
+            return false;
+        }
         if (full) {
+            if (!await validatePadding(query.padding, block.prevHash, "PADDING_SMALL")) {
+                return false;
+            }
             if (compareBuffers(blob.merkle, createMerkle(hashes).root) !== 0) {
                 return false;
             }
@@ -77,30 +88,12 @@ export const validateQuery = async (
     return true;
 };
 
-export const validateMultiBlockQuery = async (multiQuery: MultiBlockQueriesType) => {
+export const validateMultiBlockQuery = async (multiQuery: MultiBlockQueriesType, isFull: boolean) => {
     const storage = Storage.instance;
     const blocks = await Promise.all(multiQuery.queries.map(async q => storage.getItem(q.hash.toString("base64")) as Promise<string>));
     const mains: MainBlockType[] = blocks.map(b => mainBlockType.fromBuffer(Buffer.from(b, "base64")));
     for (let i = 0; i < mains.length; i++) {
-        if (!validateQuery(mains[i]!, multiQuery.queries[i]!)) {
-            return false;
-        }
-    }
-    return true;
-};
-
-export const validatePadding = async (paddings: Buffer[], hash: Buffer, type: "PADDING_BIG" | "PADDING_SMALL") => {
-    const difficulty = await getDifficulty(type);
-    for (let i = 0; i < paddings.length; i++) {
-        const padding: PaddingFormat = paddingType.fromBuffer(paddings[i]!);
-        if (padding.index !== BigInt(i)) {
-            return false;
-        }
-        if (compareBuffers(padding.hash, hash) !== 0) {
-            return false;
-        }
-        const [isValid] = await verifyArgon(paddings[i]!, type, difficulty);
-        if (!isValid) {
+        if (!validateQuery(mains[i]!, multiQuery.queries[i]!, isFull)) {
             return false;
         }
     }

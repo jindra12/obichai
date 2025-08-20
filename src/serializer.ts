@@ -38,7 +38,7 @@ export const paddingType = avro.Type.forSchema({
     fields: [
         { name: "index", type: longType },
         { name: "difficulty", type: difficulty },
-        { name: "hash", type: hash },
+        { name: "hash", type: hash, default: null },
     ],
 });
 
@@ -204,7 +204,7 @@ export const typedQueries = avro.Type.forSchema({
     name: "TypedQuery",
     fields: [
         { name: "type", type: hash },
-        { name: "padding", type: longType },
+        { name: "padding", type: { type: "array", items: paddingType, default: [] } },
         { name: "queries", type: { type: "array", items: queryType } },
     ],
 });
@@ -213,6 +213,8 @@ export const queriesType = avro.Type.forSchema({
     type: "record",
     name: "Queries",
     fields: [
+        { name: "index", type: longType },
+        { name: "hash", type: hash },
         { name: "results", type: { type: "array", items: typedQueries } }
     ]
 });

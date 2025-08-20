@@ -51,7 +51,9 @@ const initStorage = () => {
             driver: "node-persist",
         });
     } else {
-        return forage = localforage.createInstance({});
+        return forage = localforage.createInstance({
+            driver: localforage.INDEXEDDB,
+        });
     }
 }
 
