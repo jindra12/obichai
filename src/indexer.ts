@@ -6,6 +6,7 @@ import { getArgon } from "./argon";
 import { MainBlockType, MessageFormat, TransactionWithMetadata } from "./types";
 import { mainBlockType, messageType, transactionWithMetadata } from "./serializer";
 import { Throw } from "throw-expression";
+import { Types } from "./dynamic-types";
 
 export const makeIndex = <T extends {}>(obj: T, properties: ExtractObjectPaths<T>[]) => {
     return sha256CompactKey(properties.map(p => get(obj, p)));
@@ -31,6 +32,18 @@ const addIndexToKey = (index: bigint, hash: string) => sha256CompactKey([index.t
 export const getBlock = async (hash: string | Buffer): Promise<MainBlockType> => {
     const key = typeof hash === "string" ? hash : hash.toString("base64");
     return mainBlockType.fromBuffer(Buffer.from(await Storage.instance.getItem(key) as string, "base64"));
+};
+
+export const getItemByHash = async (hash: Buffer, index: bigint) => {
+    const key = hash.toString("base64");
+    const withMetadata = Buffer.from(await Storage.instance.getItem(key) as string, "base64");
+    const deserialized: TransactionWithMetadata = transactionWithMetadata.fromBuffer(withMetadata);
+    if (deserialized.index !== index) {
+        return null;
+    }
+    const message: MessageFormat = messageType.fromBuffer(deserialized.transaction);
+    const { schema } = await (await Types.instance).getTypeFromShort(message.to);
+    return schema.fromBuffer(message.data);
 };
 
 export const pushItems = async <T extends {} = Record<string, string>>(
@@ -124,7 +137,7 @@ export const getBlockHashes = async (blocks: Buffer[]) => {
     const hashes: Buffer[] = [];
     for (let i = 1; i < blocks.length; i++) {
         const block: MainBlockType = mainBlockType.fromBuffer(blocks[i]!);
-        hashes.push(block.prevHash)
+        hashes.push(block.prevHash);
     }
     hashes.push(lastHash);
     return hashes;

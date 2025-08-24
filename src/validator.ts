@@ -5,6 +5,7 @@ import uniqBy from "lodash/uniqBy";
 import { BlobHashType, MainBlockType, PaddingFormat, TokenType } from "./types";
 import { NUMBER_OF_BLOBS } from "./constants";
 import { compareBuffers } from "./utils";
+import { getItemByHash } from "./indexer";
 
 const ajv = new Ajv({ allErrors: true });
 
@@ -34,6 +35,20 @@ const equalTo: KeywordDefinition = {
     errors: false,
 };
 ajv.addKeyword(equalTo);
+
+const query: KeywordDefinition = {
+    async: true,
+    keyword: "query",
+    schemaType: "object",
+    validate: async (schema: SchemaObject, data: Buffer, _, dataCxt) => {
+        const root = dataCxt?.rootData as FullValidator<any, any>;
+        const item = await getItemByHash(data, root.block.id);
+        const validate = ajv.compile({ $async: true, ...schema });
+        return await validate(item);
+    },
+    errors: false,
+}
+ajv.addKeyword(query);
 
 const isBuffer: KeywordDefinition = {
     keyword: "isBuffer",
@@ -147,7 +162,6 @@ type FullValidator<T extends string, E extends { type: T }> = {
     prev: MainBlockType;
     queried: E;
     current: E;
-    inBlock: E[];
     signer: Buffer;
 };
 

@@ -2,7 +2,7 @@ import { createHash } from "crypto";
 import { sha256 as sha256Async } from "hash-wasm";
 import { Throw } from "throw-expression";
 
-export const sha256CompactKey = (data: string | string[] | Buffer) => {
+export const sha256CompactKey = (data: string | string[] | Buffer, bytes: number = 32) => {
     return Buffer.from(
         createHash("sha256")
             .update(Buffer.isBuffer(data) || typeof data === "string"
@@ -10,7 +10,7 @@ export const sha256CompactKey = (data: string | string[] | Buffer) => {
                 : data.join(""))
             .digest("base64"),
         "base64",
-    ).toString("base64");
+    ).subarray(0, bytes).toString("base64");
 };
 
 export const sha256 = (data: string) => {

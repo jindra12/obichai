@@ -1,3 +1,4 @@
+import groupBy from "lodash/groupBy";
 import { getArgon, verifyArgon } from "./argon";
 import { BIG_PADDING_COEFF, NUMBER_OF_BLOBS, NUMBER_OF_TRANSACTIONS, SMALL_PADDING_COEFF } from "./constants";
 import { getDifficulty } from "./difficulty";
@@ -10,6 +11,7 @@ import { MainBlockType, MultiBlockQueriesType, PaddingFormat, QueriesType, Messa
 import { blobSha256, compareBuffers, sha256CompactKey } from "./utils";
 import { validator } from "./validator";
 import { verifySignature } from "./wallet";
+import { get } from "typedots";
 
 export const storeQueries = async (
     queries: QueriesType,
@@ -87,12 +89,20 @@ export const validateQueriesContent = async (queries: QueriesType) => {
         const {
             query,
             rules,
-            schema
+            schema,
+            unique,
         } = await types.getType(type);
         const objs = await Promise.all(results.queries.map(async q => {
             const message: MessageFormat = messageType.fromBuffer(q.transaction);
             return schema.fromBuffer(message.data);
         }));
+        for (let j = 0; j < unique.length; j++) {
+            const prop = unique[j]!;
+            const grouped = groupBy(objs, obj => (get as any)(obj, prop));
+            if (!Object.values(grouped).every(g => g.length === 1)) {
+                return false;
+            }
+        }
         for (let j = 0; j < results.queries.length; j++ ) {
             const result = results.queries[j]!;
             const latest = await getLatestItem<Record<string, object>>(
@@ -107,7 +117,6 @@ export const validateQueriesContent = async (queries: QueriesType) => {
                 current: objs[j]!,
                 queried: latest,
                 signer: message.from,
-                inBlock: objs,
             }, rules);
             if (!validated) {
                 return false;

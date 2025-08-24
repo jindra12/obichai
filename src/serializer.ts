@@ -87,18 +87,6 @@ export const nftTypeEnum = avro.Type.forSchema({
     symbols: ["MINT", "TRANSFER", "ATTESTATION"],
 });
 
-export const swapTypeEnum = avro.Type.forSchema({
-    type: "enum",
-    name: "SwapType",
-    symbols: ["FUND", "WITHDRAW", "SWAP1", "SWAP2"],
-});
-
-export const nftSaleTypeEnum = avro.Type.forSchema({
-    type: "enum",
-    name: "NftSaleType",
-    symbols: ["BUY", "SELL"],
-});
-
 export const proofEnum = avro.Type.forSchema({
     type: "enum",
     name: "ProofType",
@@ -142,36 +130,6 @@ export const nftType = avro.Type.forSchema({
         { name: "from", type: address },
         { name: "to", type: address },
         { name: "type", type: nftTypeEnum },
-    ],
-});
-
-export const swapType = avro.Type.forSchema({
-    type: "record",
-    name: "Swap",
-    fields: [
-        { name: "balance1", type: longType },
-        { name: "balance2", type: longType },
-        { name: "token1", type: hash },
-        { name: "token2", type: hash },
-        { name: "lpToken", type: hash },
-        { name: "type", type: swapTypeEnum },
-        { name: "address", type: address },
-        { name: "relatedTo1", type: hash },
-        { name: "relatedTo2", type: hash },
-    ],
-});
-
-export const nftSale = avro.Type.forSchema({
-    type: "record",
-    name: "NFTSale",
-    fields: [
-        { name: "series", type: hash },
-        { name: "identity", type: hash },
-        { name: "price", type: longType },
-        { name: "token", type: hash },
-        { name: "address", type: address },
-        { name: "type", type: nftSaleTypeEnum },
-        { name: "relatedTo", type: hash },
     ],
 });
 
