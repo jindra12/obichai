@@ -3,8 +3,8 @@ import { Type } from "avsc";
 import { sha256CompactKey } from "./utils";
 import { Storage } from "./storage";
 import { getArgon } from "./argon";
-import { MainBlockType } from "./types";
-import { mainBlockType } from "./serializer";
+import { MainBlockType, MessageFormat, TransactionWithMetadata } from "./types";
+import { mainBlockType, messageType, transactionWithMetadata } from "./serializer";
 import { Throw } from "throw-expression";
 
 export const makeIndex = <T extends {}>(obj: T, properties: ExtractObjectPaths<T>[]) => {
@@ -28,6 +28,11 @@ const decrementKey = async (key: string) => {
 
 const addIndexToKey = (index: bigint, hash: string) => sha256CompactKey([index.toString(), hash]);
 
+export const getBlock = async (hash: string | Buffer): Promise<MainBlockType> => {
+    const key = typeof hash === "string" ? hash : hash.toString("base64");
+    return mainBlockType.fromBuffer(Buffer.from(await Storage.instance.getItem(key) as string, "base64"));
+};
+
 export const pushItems = async <T extends {} = Record<string, string>>(
     objs: Buffer[],
     serializer: Type,
@@ -39,7 +44,14 @@ export const pushItems = async <T extends {} = Record<string, string>>(
     const storage = Storage.instance;
     for (let i = 0; i < objs.length; i++) {
         const obj = objs[i]!;
-        const deser: Record<string, object> = serializer.fromBuffer(obj);
+        const withMetadata: TransactionWithMetadata = {
+            blockHash: mainBlockHash,
+            index,
+            transaction: obj,
+        };
+        const withMetadataBuffer = transactionWithMetadata.toBuffer(withMetadata);
+        const transactionObj: MessageFormat = messageType.fromBuffer(obj);
+        const deser: Record<string, object> = serializer.fromBuffer(transactionObj.data);
         const hash = sha256CompactKey(obj);
         
         const latestKey = makeIndex(deser, properties);
@@ -59,7 +71,7 @@ export const pushItems = async <T extends {} = Record<string, string>>(
             (async () => addIndexToKey(await incrementKey(indexKey), indexKey))(),
         ]);
         await Promise.all([
-            storage.setItem(hash, obj.toString("base64")),
+            storage.setItem(hash, withMetadataBuffer.toString("base64")),
             storage.setItem(latestIndex, hash),
             storage.setItem(hashIndex, hash),
             storage.setItem(countIndex, hash),
@@ -78,7 +90,9 @@ export const popItems = async <T extends {} = Record<string, string>>(
    const storage = Storage.instance;
     for (let i = 0; i < objs.length; i++) {
         const obj = objs[i]!;
-        const deser: Record<string, object> = serializer.fromBuffer(obj);
+        const withMetadata: TransactionWithMetadata = transactionWithMetadata.fromBuffer(obj);
+        const transactionObj: MessageFormat = messageType.fromBuffer(withMetadata.transaction);
+        const deser: Record<string, object> = serializer.fromBuffer(transactionObj.data);
         const hash = sha256CompactKey(obj);
         const latestKey = makeIndex(deser, properties);
         const hashKey = sha256CompactKey(
@@ -125,15 +139,22 @@ export const storeMainBlocks = async (blocks: Buffer[]) => {
     return hashes;
 };
 
-export const getLatestItem = async <T extends {}>(obj: Buffer, serializer: Type, properties: ExtractObjectPaths<T>[]): Promise<T> => {
-    const deser: Record<string, object> = serializer.fromBuffer(obj);
+export const getLatestItem = async <T extends {}>(
+    obj: Buffer,
+    serializer: Type,
+    properties: ExtractObjectPaths<T>[]
+): Promise<T> => {
+    const withMetadataEntry: TransactionWithMetadata = transactionWithMetadata.fromBuffer(obj);
+    const transactionEntry: MessageFormat = messageType.fromBuffer(withMetadataEntry.transaction);
+    const deser: Record<string, object> = serializer.fromBuffer(transactionEntry.data);
     const latestKey = makeIndex(deser, properties);
     const index = BigInt((await Storage.instance.getItem(latestKey)) || '0');
     const itemKey = addIndexToKey(index, latestKey);
     const hash = await Storage.instance.getItem(itemKey) as string;
     const item = await Storage.instance.getItem(hash) as string;
-    const buffer = Buffer.from(item, "base64");
-    return serializer.fromBuffer(buffer);
+    const withMetadata: TransactionWithMetadata = transactionWithMetadata.fromBuffer(Buffer.from(item, "base64"));
+    const transactionWithObject: MessageFormat = messageType.fromBuffer(withMetadata.transaction);
+    return serializer.fromBuffer(transactionWithObject.data);
 };
 
 const getItems = async <T extends {}>(key: string, serializer: Type): Promise<T[]> => {
@@ -144,7 +165,9 @@ const getItems = async <T extends {}>(key: string, serializer: Type): Promise<T[
             const itemHash = addIndexToKey(i, key);
             const hash = await Storage.instance.getItem(itemHash) as string;
             const buffer = Buffer.from(await Storage.instance.getItem(hash) as string, "base64");
-            resolve(serializer.fromBuffer(buffer));
+            const withMetadata: TransactionWithMetadata = transactionWithMetadata.fromBuffer(buffer);
+            const transactionWithObject: MessageFormat = messageType.fromBuffer(withMetadata.transaction);
+            resolve(serializer.fromBuffer(transactionWithObject.data));
         }));
     }
     return Promise.all(promises);

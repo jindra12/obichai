@@ -44,7 +44,7 @@ export type DePromise<T> = T extends Promise<infer P> ? P : never;
 export type DiffResult = {
     MAIN: MainBlockType,
     SIDE: BlobHashType,
-    TRANSACTION: TransactionFormat;
+    TRANSACTION: MessageFormat;
     PADDING_BIG: PaddingFormat;
     PADDING_SMALL: PaddingFormat;
 };
@@ -81,7 +81,7 @@ export type TransactionValidationFormat<T extends object> = {
     current: T;
 };
 
-export interface TransactionFormat {
+export interface MessageFormat {
     from: Buffer;
     to: Buffer;
     data: Buffer;
@@ -141,6 +141,7 @@ export interface NftSaleType {
 
 export interface QueryType {
     proof: ProofPart[];
+    signature: Buffer;
     transaction: Buffer;
 }
 
@@ -158,6 +159,12 @@ export interface QueriesType {
 
 export interface MultiBlockQueriesType {
     queries: QueriesType[];
+}
+
+export interface TransactionWithMetadata {
+    transaction: Buffer;
+    blockHash: Buffer;
+    index: bigint;
 }
 
 export type DifficultyType = "MAIN" | "SIDE" | "TRANSACTION" | "PADDING_BIG" | "PADDING_SMALL";

@@ -2,11 +2,14 @@ import { toChecksumAddress, privateToPublic, publicToAddress, bufferToHex, ecsig
 import { randomBytes } from "crypto";
 import { SignTypedDataVersion, TypedDataUtils } from "@metamask/eth-sig-util";
 
-import { TransactionFormat } from "./types";
+import { MessageFormat } from "./types";
 import { messageType } from "./serializer";
 import { compareBuffers } from "./utils";
+import { verifyArgon } from "./argon";
+import { computeDifficulty, getDifficulty } from "./difficulty";
+import { Throw } from "throw-expression";
 
-export const signUserReadable = ({ data, from, note, to, difficulty }: TransactionFormat) => {
+export const signUserReadable = ({ data, from, note, to, difficulty }: MessageFormat) => {
     const domain = {
         name: "Obichai",
         version: "1",
@@ -63,26 +66,36 @@ export const generateWallet = () => {
     };
 }
 
-export const signMessage = (message: TransactionFormat, privateKey: Buffer) => {
-    const msgHash = TypedDataUtils.eip712Hash(signUserReadable(message), SignTypedDataVersion.V4);
+export const signMessage = async (message: Omit<MessageFormat, "difficulty">, privateKey: Buffer) => {
+    const full = await computeDifficulty(messageType.toBuffer(message), "TRANSACTION");
+    if (!full) {
+        Throw(`Hashing transaction failed`);
+    }
+    const msgHash = TypedDataUtils.eip712Hash(
+        signUserReadable(
+            full
+        ), SignTypedDataVersion.V4
+    );
     const { r, s, v } = ecsign(msgHash, privateKey);
     const signature = Buffer.concat([r, s, Buffer.from([v])]);
-    return Buffer.concat([signature, messageType.toBuffer(message)])
+    return Buffer.concat([signature, messageType.toBuffer(full)])
 };
 
-export const verifySignature = (signed: Buffer) => {
+export const verifySignature = async (signed: Buffer) => {
     const signature = signed.subarray(0, 65);
     const serialized = signed.subarray(65);
     const r = signature.subarray(0, 32);
     const s = signature.subarray(32, 64);
     const v = signature[64]!;
-    const message: TransactionFormat = messageType.fromBuffer(serialized);
+    const difficulty = await getDifficulty("TRANSACTION");
+    const [isValid] = await verifyArgon(serialized, "TRANSACTION", difficulty);
+    const message: MessageFormat = messageType.fromBuffer(serialized);
     const msgHash = TypedDataUtils.eip712Hash(signUserReadable(message), SignTypedDataVersion.V4);
     const pubKey = ecrecover(msgHash, v, r, s);
     const addrBuf = pubToAddress(pubKey, true);
     return {
         address: addrBuf,
         message: serialized,
-        valid: compareBuffers(addrBuf, message.from) === 0,
+        valid: isValid && compareBuffers(addrBuf, message.from) === 0,
     };
 };

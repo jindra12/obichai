@@ -16,3 +16,5 @@ export const DIFFICULTY_COEFS: Record<DifficultyType, bigint> = {
 };
 export const GIVE_UP_HASHING = 60 * 1000;
 export const ARGON_SALT = "Vítejte v systému Obichai";
+export const BIG_PADDING_COEFF = 5;
+export const SMALL_PADDING_COEFF = 20;

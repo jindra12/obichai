@@ -1,18 +1,15 @@
 import { getArgon, verifyArgon } from "./argon";
-import { NUMBER_OF_BLOBS, NUMBER_OF_TRANSACTIONS } from "./constants";
+import { BIG_PADDING_COEFF, NUMBER_OF_BLOBS, NUMBER_OF_TRANSACTIONS, SMALL_PADDING_COEFF } from "./constants";
 import { getDifficulty } from "./difficulty";
 import { Types } from "./dynamic-types";
-import { pushItems } from "./indexer";
+import { getBlock, getLatestItem, pushItems } from "./indexer";
 import { createMerkle, verifyMerkleProof } from "./merkle";
-import { blobHashType, mainBlockType, paddingType } from "./serializer";
+import { blobHashType, mainBlockType, messageType, paddingArray, paddingType } from "./serializer";
 import { Storage } from "./storage";
-import { MainBlockType, MultiBlockQueriesType, PaddingFormat, QueriesType } from "./types";
-import { blobSha256, compareBuffers } from "./utils";
-
-export const getBlock = async (hash: string | Buffer) => {
-    const key = typeof hash === "string" ? hash : hash.toString("base64");
-    return Buffer.from(await Storage.instance.getItem(key) as string, "base64");
-};
+import { MainBlockType, MultiBlockQueriesType, PaddingFormat, QueriesType, MessageFormat } from "./types";
+import { blobSha256, compareBuffers, sha256CompactKey } from "./utils";
+import { validator } from "./validator";
+import { verifySignature } from "./wallet";
 
 export const storeQueries = async (
     queries: QueriesType,
@@ -39,6 +36,30 @@ export const storeQueries = async (
     }
 };
 
+export const storeSmallPadding = async (blockHash: Buffer, type: Buffer, padding: PaddingFormat[]) => {
+    const hash = sha256CompactKey(
+        Buffer.concat([
+            Buffer.from("padding", "utf-8"), 
+            blockHash,
+            type,
+        ])
+    );
+    await Storage.instance.setItem(hash, paddingArray.toBuffer(padding).toString("base64"));
+};
+
+export const getSmallPadding = async (blockHash: Buffer, type: Buffer) => {
+    const hash = sha256CompactKey(
+        Buffer.concat([
+            Buffer.from("padding", "utf-8"), 
+            blockHash,
+            type,
+        ])
+    );
+    return paddingArray.fromBuffer(
+        Buffer.from(await Storage.instance.getItem(hash) as string, "base64"),
+    );
+};
+
 export const validatePadding = async (paddings: (PaddingFormat | Buffer)[], hash: Buffer, type: "PADDING_BIG" | "PADDING_SMALL") => {
     const difficulty = await getDifficulty(type);
     for (let i = 0; i < paddings.length; i++) {
@@ -56,23 +77,79 @@ export const validatePadding = async (paddings: (PaddingFormat | Buffer)[], hash
     return true;
 };
 
+export const validateQueriesContent = async (queries: QueriesType) => {
+    const block = await getBlock(queries.hash);
+    const prev = await getBlock(block.prevHash);
+    const types = await Types.instance;
+    for (let i = 0; i < queries.results.length; i++) {
+        const results = queries.results[i]!;
+        const type = results.type;
+        const {
+            query,
+            rules,
+            schema
+        } = await types.getType(type);
+        const objs = await Promise.all(results.queries.map(async q => {
+            const message: MessageFormat = messageType.fromBuffer(q.transaction);
+            return schema.fromBuffer(message.data);
+        }));
+        for (let j = 0; j < results.queries.length; j++ ) {
+            const result = results.queries[j]!;
+            const latest = await getLatestItem<Record<string, object>>(
+                result.transaction,
+                schema,
+                query,
+            );
+            const message: MessageFormat = messageType.fromBuffer(result.transaction);
+            const validated = await validator({
+                block: block,
+                prev: prev,
+                current: objs[j]!,
+                queried: latest,
+                signer: message.from,
+                inBlock: objs,
+            }, rules);
+            if (!validated) {
+                return false;
+            }
+        }
+    }
+    return true;
+};
+
+export const validateQueriesSignature = async (
+    queries: QueriesType,
+) => {
+    const transactions = queries.results.flatMap(r => r.queries).map(q => Buffer.concat([q.signature, q.transaction]));
+    for (let i = 0; i < transactions.length; i++) {
+        const { valid } = await verifySignature(transactions[i]!);
+        if (!valid) {
+            return false;
+        }
+    }
+    return true;
+}
+
 export const validateQuery = async (
     block: MainBlockType,
     queries: QueriesType,
-    isFull: boolean,
+    type: "partial" | "full"
 ) => {
+    if (!validateQueriesSignature(queries)) {
+        return false;
+    }
     for (let i = 0; i < queries.results.length; i++) {
         const blob = block.blobs[i]!;
         const query = queries.results[i]!;
         if (compareBuffers(query.type, blob.type) !== 0) {
             return false;
         }
-        const full = query.queries.length === NUMBER_OF_TRANSACTIONS;
         const hashes = await blobSha256(query.queries.map(q => q.transaction));
-        if (isFull && !full) {
-            return false;
-        }
-        if (full) {
+        const isFull = type === "full";
+        if (isFull) {
+            if (query.padding.length * SMALL_PADDING_COEFF + query.queries.length < NUMBER_OF_TRANSACTIONS) {
+                return false;
+            }
             if (!await validatePadding(query.padding, block.prevHash, "PADDING_SMALL")) {
                 return false;
             }
@@ -88,12 +165,12 @@ export const validateQuery = async (
     return true;
 };
 
-export const validateMultiBlockQuery = async (multiQuery: MultiBlockQueriesType, isFull: boolean) => {
+export const validateMultiBlockQuery = async (multiQuery: MultiBlockQueriesType, type: "partial" | "full") => {
     const storage = Storage.instance;
     const blocks = await Promise.all(multiQuery.queries.map(async q => storage.getItem(q.hash.toString("base64")) as Promise<string>));
     const mains: MainBlockType[] = blocks.map(b => mainBlockType.fromBuffer(Buffer.from(b, "base64")));
     for (let i = 0; i < mains.length; i++) {
-        if (!validateQuery(mains[i]!, multiQuery.queries[i]!, isFull)) {
+        if (!validateQuery(mains[i]!, multiQuery.queries[i]!, type)) {
             return false;
         }
     }
@@ -115,7 +192,7 @@ export const validateMainDifficulty = async (block: Buffer, prevHash?: Buffer, p
     if (!isValid) {
         return [false] as const;
     }
-    if (parsed.blobs.length + parsed.padding.length !== NUMBER_OF_BLOBS) {
+    if (parsed.blobs.length + parsed.padding.length * BIG_PADDING_COEFF < NUMBER_OF_BLOBS) {
         return [false] as const;
     }
     if (!validatePadding(parsed.padding.map(p => paddingType.toBuffer(p)), parsed.prevHash, "PADDING_BIG")) {

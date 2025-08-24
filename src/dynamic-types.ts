@@ -10,9 +10,8 @@ const serializeType = async <T extends {}>(
     type: avro.Type,
     rules: JSONSchemaType<T> | null = null,
     query: ExtractObjectPaths<T>[] = [],
-    unique: ExtractObjectPaths<T>[] = [],
 ) => {
-    const json = JSON.stringify({ schema: type.schema(), rules, query, unique });
+    const json = JSON.stringify({ schema: type.schema(), rules, query });
     return {
         json,
         hash: sha256CompactKey(json),
@@ -20,17 +19,15 @@ const serializeType = async <T extends {}>(
 };
 
 const deserializeType = <T extends {} = Record<string, string>>(type: string) => {
-    const { schema, rules, query, unique } = JSON.parse(type) as {
+    const { schema, rules, query } = JSON.parse(type) as {
         schema: avro.Schema,
         rules: JSONSchemaType<T>,
         query: ExtractObjectPaths<T>[],
-        unique: ExtractObjectPaths<T>[],
     };
     return {
         schema: avro.Type.forSchema(schema, { registry: { "long": longType } }),
         rules,
         query,
-        unique,
     };
 };
 

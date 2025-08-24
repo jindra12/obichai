@@ -1,5 +1,5 @@
 import { get } from "typedots";
-import Ajv, { JSONSchemaType, KeywordDefinition } from "ajv";
+import Ajv, { AsyncSchema, JSONSchemaType, KeywordDefinition, SchemaObject } from "ajv";
 import addFormats from "ajv-formats";
 import uniqBy from "lodash/uniqBy";
 import { BlobHashType, MainBlockType, PaddingFormat, TokenType } from "./types";
@@ -7,6 +7,7 @@ import { NUMBER_OF_BLOBS } from "./constants";
 import { compareBuffers } from "./utils";
 
 const ajv = new Ajv({ allErrors: true });
+
 addFormats(ajv);
 
 const isBufferLength: KeywordDefinition = {
@@ -141,7 +142,16 @@ const mainBlock: JSONSchemaType<MainBlockType> = {
     additionalProperties: false,
 };
 
-type SubRecord<T extends string, E extends { type: T }> = Record<T, Partial<JSONSchemaType<{ block: MainBlockType, prev: MainBlockType, queried: E, current: E }>>>;
+type FullValidator<T extends string, E extends { type: T }> = {
+    block: MainBlockType;
+    prev: MainBlockType;
+    queried: E;
+    current: E;
+    inBlock: E[];
+    signer: Buffer;
+};
+
+type SubRecord<T extends string, E extends { type: T }> = Record<T, Partial<JSONSchemaType<FullValidator<T, E>>>>;
 
 export const createTypeValidation = <T extends string, E extends { type: T }>(
     validators: Record<T, SubRecord<T, E>>
@@ -178,6 +188,17 @@ export const createTypeValidation = <T extends string, E extends { type: T }>(
             }
         ],
     } as any as JSONSchemaType<{ block: MainBlockType, prev: MainBlockType, queried: E, current: E }>;
+};
+
+export const validator = async <T extends string, E extends { type: T }>(
+    validator: FullValidator<T, E>,
+    schema: SchemaObject,
+): Promise<boolean> => {
+    const validate = ajv.compile({
+        $async: true,
+        ...schema,
+    } as AsyncSchema);
+    return (await validate(validator)) as boolean;
 };
 
 export const coinValidation = createTypeValidation<TokenType["type"], TokenType>({

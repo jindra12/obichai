@@ -26,6 +26,12 @@ export const hash = {
     name: "Hash",
 } as const;
 
+export const signature = {
+    type: "fixed",
+    size: 65,
+    name: "Signature",
+} as const;
+
 export const difficulty = {
     type: "fixed",
     size: DIFFICULTY_SIZE,
@@ -177,7 +183,7 @@ export const messageType = avro.Type.forSchema({
         { name: "to", type: address },
         { name: "data", type: "bytes" },
         { name: "note", type: "note" },
-        { name: "difficulty", type: "bytes" }
+        { name: "difficulty", type: "bytes", default: null }
     ]
 });
 
@@ -195,6 +201,7 @@ export const queryType = avro.Type.forSchema({
     name: "Query",
     fields: [
         { name: "transaction", type: "bytes" },
+        { name: "signature", type: signature },
         { name: "proof", type: { type: "array", items: proofType }, default: [] }
     ]
 });
@@ -225,5 +232,20 @@ export const multiBlockQueriesType = avro.Type.forSchema({
     fields: [
         { name: "hash", type: hash },
         { name: "queries", type: queriesType },
+    ],
+});
+
+export const paddingArray = avro.Type.forSchema({
+    type: "array",
+    items: paddingType,
+});
+
+export const transactionWithMetadata = avro.Type.forSchema({
+    type: "record",
+    name: "TransactionWithMetadata",
+    fields: [
+        { name: "transaction", type: "bytes" },
+        { name: "blockHash", type: hash },
+        { name: "index", type: longType }
     ],
 });
