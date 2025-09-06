@@ -173,16 +173,21 @@ export interface ValidationCriteria {
     }[];
 };
 
+export interface FloodMessage {
+    type: "REQUEST" | "RESPONSE";
+    key: string;
+}
+
 export type SignedMessage = ({
     r: Buffer;
     s: Buffer;
     v: Buffer;
-    type: "manual";
+    type: "MANUAL";
 } | {
     rule: Buffer;
     hash: Buffer;
     index: bigint;
-    type: "auto";
+    type: "AUTO";
 }) & {
     transaction: Buffer;
 };

@@ -10,7 +10,7 @@ import { compareBuffers } from "./utils";
 import { verifyArgon } from "./argon";
 import { computeDifficulty, getDifficulty } from "./difficulty";
 import { BrowserProvider } from "ethers";
-import { getItemByHash } from "./indexer";
+import { getItemByHash, getLatestItem } from "./indexer";
 import { Types } from "./dynamic-types";
 import { getRule, processRule } from "./rule";
 
@@ -89,7 +89,7 @@ export const signMessage = async (message: Omit<MessageFormat, "difficulty">, pr
             s,
             v: Buffer.from([v]),
             transaction: messageType.toBuffer(full),
-            type: "manual",
+            type: "MANUAL",
         };
         return signedMessage.toBuffer(signed);
     } else {
@@ -108,7 +108,7 @@ export const signMessage = async (message: Omit<MessageFormat, "difficulty">, pr
             s: sBuffer,
             v: Buffer.from([v]),
             transaction: messageType.toBuffer(full),
-            type: "manual",
+            type: "MANUAL",
         };
         return signedMessage.toBuffer(signed);
     }
@@ -116,7 +116,7 @@ export const signMessage = async (message: Omit<MessageFormat, "difficulty">, pr
 
 export const verifySignature = async (signed: Buffer) => {
     const fromBuffer = signedMessage.fromBuffer(signed) as SignedMessage;
-    if (fromBuffer.type === "manual") {
+    if (fromBuffer.type === "MANUAL") {
         const {
             r,
             s,
@@ -147,10 +147,14 @@ export const verifySignature = async (signed: Buffer) => {
             item: corresponding,
             type: correspondingType,
         } = (await getItemByHash(hash, index)) ?? Throw(`Could not find item ${hash.toString("base64")} at ${index}`);
-        const type = await (await Types.instance).getTypeFromShort(message.to);
-        const parsed = type.schema.fromBuffer(message.data);
+        const {
+            schema,
+            query,
+        } = await (await Types.instance).getTypeFromShort(message.to);
+        const parsed = schema.fromBuffer(message.data);
         const storedRule = await getRule(message.from);
-        const processed = processRule(parsed, storedRule);
+        const latest = await getLatestItem<Record<string, object>>(message.data, schema, query);
+        const processed = processRule(latest, parsed, storedRule);
 
         return {
             address: message.from,

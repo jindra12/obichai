@@ -17,8 +17,9 @@ export const setRule = async (rule: Buffer | string) => {
 };
 
 export const processRule = async <T extends Record<string, any>>(
+    latest: T,
     transaction: T,
     rule: Buffer | string
 ) => {
-    return jexl.eval(rule.toString("utf-8"), transaction);
+    return jexl.eval(rule.toString("utf-8"), { latest, transaction });
 };

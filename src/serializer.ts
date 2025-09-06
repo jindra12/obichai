@@ -81,6 +81,13 @@ export const mainBlockType = avro.Type.forSchema({
     ]
 });
 
+export const messageTypeEnum = avro.Type.forSchema({
+  type: "enum",
+  name: "MessageType",
+  symbols: ["MANUAL", "AUTO"],
+});
+
+
 export const transactionTypeEnum = avro.Type.forSchema({
   type: "enum",
   name: "TransactionType",
@@ -97,7 +104,13 @@ export const proofEnum = avro.Type.forSchema({
     type: "enum",
     name: "ProofType",
     symbols: ["left", "right"],
-})
+});
+
+export const floodMessageEnum = avro.Type.forSchema({
+    type: "enum",
+    name: "FloodMessageEnum",
+    symbols: ["REQUEST", "RESPONSE"],
+});
 
 export const coinType = avro.Type.forSchema({
     type: "record",
@@ -221,6 +234,20 @@ export const signedMessage = avro.Type.forSchema({
         { name: "r", type: hash },
         { name: "s", type: hash },
         { name: "v", type: single },
+        { name: "rule", type: hash },
+        { name: "hash", type: hash },
+        { name: "index", type: longType },
+        { name: "type", type: messageTypeEnum },
         { name: "transaction", type: "bytes" }
+    ],
+});
+
+export const floodMessage = avro.Type.forSchema({
+    type: "record",
+    name: "FloodMessage",
+    fields: [
+        { name: "type", type: floodMessageEnum },
+        { name: "message", type: "bytes" },
+        { name: "key", type: hash },
     ],
 });
