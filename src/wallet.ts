@@ -1,13 +1,18 @@
 import { toChecksumAddress, privateToPublic, publicToAddress, bufferToHex, ecsign, ecrecover, pubToAddress } from "ethereumjs-util";
 import { randomBytes } from "crypto";
 import { SignTypedDataVersion, TypedDataUtils } from "@metamask/eth-sig-util";
+import { Throw } from "throw-expression";
+import { Eip1193Provider, Signature } from "ethers";
 
-import { MessageFormat } from "./types";
-import { messageType } from "./serializer";
+import { MessageFormat, SignedMessage } from "./types";
+import { messageType, signedMessage } from "./serializer";
 import { compareBuffers } from "./utils";
 import { verifyArgon } from "./argon";
 import { computeDifficulty, getDifficulty } from "./difficulty";
-import { Throw } from "throw-expression";
+import { BrowserProvider } from "ethers";
+import { getItemByHash } from "./indexer";
+import { Types } from "./dynamic-types";
+import { getRule, processRule } from "./rule";
 
 export const signUserReadable = ({ data, from, note, to, difficulty }: MessageFormat) => {
     const domain = {
@@ -66,36 +71,91 @@ export const generateWallet = () => {
     };
 }
 
-export const signMessage = async (message: Omit<MessageFormat, "difficulty">, privateKey: Buffer) => {
+export const signMessage = async (message: Omit<MessageFormat, "difficulty">, privOrProvider: Buffer | Eip1193Provider) => {
     const full = await computeDifficulty(messageType.toBuffer(message), "TRANSACTION");
     if (!full) {
         Throw(`Hashing transaction failed`);
     }
-    const msgHash = TypedDataUtils.eip712Hash(
-        signUserReadable(
-            full
-        ), SignTypedDataVersion.V4
+    const userReadableTransaction = signUserReadable(
+        full
     );
-    const { r, s, v } = ecsign(msgHash, privateKey);
-    const signature = Buffer.concat([r, s, Buffer.from([v])]);
-    return Buffer.concat([signature, messageType.toBuffer(full)])
+    const msgHash = TypedDataUtils.eip712Hash(
+        userReadableTransaction, SignTypedDataVersion.V4
+    );
+    if (Buffer.isBuffer(privOrProvider)) {
+        const { r, s, v } = ecsign(msgHash, privOrProvider);
+        const signed: SignedMessage = {
+            r,
+            s,
+            v: Buffer.from([v]),
+            transaction: messageType.toBuffer(full),
+            type: "manual",
+        };
+        return signedMessage.toBuffer(signed);
+    } else {
+        const provider = new BrowserProvider(privOrProvider);
+        const signer = await provider.getSigner();
+        const signature = await signer.signTypedData(
+            userReadableTransaction.domain,
+            userReadableTransaction.types,
+            userReadableTransaction.message
+        );
+        const { r, s, v } = Signature.from(signature);
+        const rBuffer = Buffer.from(r.slice(2), "hex");
+        const sBuffer = Buffer.from(s.slice(2), "hex");
+        const signed: SignedMessage = {
+            r: rBuffer,
+            s: sBuffer,
+            v: Buffer.from([v]),
+            transaction: messageType.toBuffer(full),
+            type: "manual",
+        };
+        return signedMessage.toBuffer(signed);
+    }
 };
 
 export const verifySignature = async (signed: Buffer) => {
-    const signature = signed.subarray(0, 65);
-    const serialized = signed.subarray(65);
-    const r = signature.subarray(0, 32);
-    const s = signature.subarray(32, 64);
-    const v = signature[64]!;
-    const difficulty = await getDifficulty("TRANSACTION");
-    const [isValid] = await verifyArgon(serialized, "TRANSACTION", difficulty);
-    const message: MessageFormat = messageType.fromBuffer(serialized);
-    const msgHash = TypedDataUtils.eip712Hash(signUserReadable(message), SignTypedDataVersion.V4);
-    const pubKey = ecrecover(msgHash, v, r, s);
-    const addrBuf = pubToAddress(pubKey, true);
-    return {
-        address: addrBuf,
-        message: serialized,
-        valid: isValid && compareBuffers(addrBuf, message.from) === 0,
-    };
+    const fromBuffer = signedMessage.fromBuffer(signed) as SignedMessage;
+    if (fromBuffer.type === "manual") {
+        const {
+            r,
+            s,
+            transaction,
+            v,
+        } = fromBuffer;
+        const difficulty = await getDifficulty("TRANSACTION");
+        const [isValid] = await verifyArgon(transaction, "TRANSACTION", difficulty);
+        const message: MessageFormat = messageType.fromBuffer(transaction);
+        const msgHash = TypedDataUtils.eip712Hash(signUserReadable(message), SignTypedDataVersion.V4);
+        const pubKey = ecrecover(msgHash, v, r, s);
+        const addrBuf = pubToAddress(pubKey, true);
+        return {
+            address: addrBuf,
+            message: transaction,
+            valid: isValid && compareBuffers(addrBuf, message.from) === 0,
+        };
+    } else {
+        const {
+            hash,
+            index,
+            transaction,
+        } = fromBuffer;
+        const difficulty = await getDifficulty("TRANSACTION");
+        const [isValid] = await verifyArgon(transaction, "TRANSACTION", difficulty);
+        const message: MessageFormat = messageType.fromBuffer(transaction);
+        const {
+            item: corresponding,
+            type: correspondingType,
+        } = (await getItemByHash(hash, index)) ?? Throw(`Could not find item ${hash.toString("base64")} at ${index}`);
+        const type = await (await Types.instance).getTypeFromShort(message.to);
+        const parsed = type.schema.fromBuffer(message.data);
+        const storedRule = await getRule(message.from);
+        const processed = processRule(parsed, storedRule);
+
+        return {
+            address: message.from,
+            message: transaction,
+            valid: isValid && compareBuffers(correspondingType.toBuffer(corresponding), correspondingType.toBuffer(processed)) === 0,
+        };
+    }
 };

@@ -167,4 +167,24 @@ export interface TransactionWithMetadata {
     index: bigint;
 }
 
+export interface ValidationCriteria {
+    anyOf: {
+        allOf: string[];
+    }[];
+};
+
+export type SignedMessage = ({
+    r: Buffer;
+    s: Buffer;
+    v: Buffer;
+    type: "manual";
+} | {
+    rule: Buffer;
+    hash: Buffer;
+    index: bigint;
+    type: "auto";
+}) & {
+    transaction: Buffer;
+};
+
 export type DifficultyType = "MAIN" | "SIDE" | "TRANSACTION" | "PADDING_BIG" | "PADDING_SMALL";

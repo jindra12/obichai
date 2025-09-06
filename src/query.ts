@@ -9,9 +9,9 @@ import { blobHashType, mainBlockType, messageType, paddingArray, paddingType } f
 import { Storage } from "./storage";
 import { MainBlockType, MultiBlockQueriesType, PaddingFormat, QueriesType, MessageFormat } from "./types";
 import { blobSha256, compareBuffers, sha256CompactKey } from "./utils";
-import { validator } from "./validator";
 import { verifySignature } from "./wallet";
 import { get } from "typedots";
+import { isMessageValid } from "./validator";
 
 export const storeQueries = async (
     queries: QueriesType,
@@ -111,8 +111,7 @@ export const validateQueriesContent = async (queries: QueriesType) => {
                 query,
             );
             const message: MessageFormat = messageType.fromBuffer(result.transaction);
-            const validated = await validator({
-                block: block,
+            const validated = await isMessageValid({
                 prev: prev,
                 current: objs[j]!,
                 queried: latest,

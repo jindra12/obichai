@@ -26,6 +26,12 @@ export const hash = {
     name: "Hash",
 } as const;
 
+export const single = {
+    type: "fixed",
+    size: 1,
+    name: "Hash",
+} as const;
+
 export const signature = {
     type: "fixed",
     size: 65,
@@ -44,7 +50,7 @@ export const paddingType = avro.Type.forSchema({
     fields: [
         { name: "index", type: longType },
         { name: "difficulty", type: difficulty },
-        { name: "hash", type: hash, default: null },
+        { name: "hash", type: [hash, "null"], default: "null" },
     ],
 });
 
@@ -103,7 +109,7 @@ export const coinType = avro.Type.forSchema({
         { name: "amount", type: longType },
         { name: "nextBalance", type: longType },
         { name: "type", type: transactionTypeEnum },
-        { name: "relatedTo", type: ["null", hash] },
+        { name: "relatedTo", type: ["null", hash], default: "null" },
     ],
 });
 
@@ -116,7 +122,7 @@ export const tokenType = avro.Type.forSchema({
         { name: "amount", type: longType },
         { name: "nextBalance", type: longType },
         { name: "type", type: transactionTypeEnum },
-        { name: "relatedTo", type: ["null", hash] },
+        { name: "relatedTo", type: ["null", hash], default: "null" },
     ],
 });
 
@@ -141,7 +147,7 @@ export const messageType = avro.Type.forSchema({
         { name: "to", type: address },
         { name: "data", type: "bytes" },
         { name: "note", type: "note" },
-        { name: "difficulty", type: "bytes", default: null }
+        { name: "difficulty", type: ["bytes", "null"], default: "null" }
     ]
 });
 
@@ -205,5 +211,16 @@ export const transactionWithMetadata = avro.Type.forSchema({
         { name: "transaction", type: "bytes" },
         { name: "blockHash", type: hash },
         { name: "index", type: longType }
+    ],
+});
+
+export const signedMessage = avro.Type.forSchema({
+    type: "record",
+    name: "SignedMessage",
+    fields: [
+        { name: "r", type: hash },
+        { name: "s", type: hash },
+        { name: "v", type: single },
+        { name: "transaction", type: "bytes" }
     ],
 });

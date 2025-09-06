@@ -34,7 +34,7 @@ export const getBlock = async (hash: string | Buffer): Promise<MainBlockType> =>
     return mainBlockType.fromBuffer(Buffer.from(await Storage.instance.getItem(key) as string, "base64"));
 };
 
-export const getItemByHash = async (hash: Buffer, index: bigint) => {
+export const getItemByHash = async <T>(hash: Buffer, index: bigint): Promise<null | { item: T, type: Type }> => {
     const key = hash.toString("base64");
     const withMetadata = Buffer.from(await Storage.instance.getItem(key) as string, "base64");
     const deserialized: TransactionWithMetadata = transactionWithMetadata.fromBuffer(withMetadata);
@@ -43,7 +43,10 @@ export const getItemByHash = async (hash: Buffer, index: bigint) => {
     }
     const message: MessageFormat = messageType.fromBuffer(deserialized.transaction);
     const { schema } = await (await Types.instance).getTypeFromShort(message.to);
-    return schema.fromBuffer(message.data);
+    return {
+        item: schema.fromBuffer(message.data) as T,
+        type: schema,
+    };
 };
 
 export const pushItems = async <T extends {} = Record<string, string>>(

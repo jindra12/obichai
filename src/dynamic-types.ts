@@ -1,18 +1,22 @@
 import avro from "avsc";
-import { JSONSchemaType } from "ajv";
 import { ExtractObjectPaths } from "typedots";
 import { Storage } from "./storage";
-import { DePromise } from "./types";
+import { DePromise, ValidationCriteria } from "./types";
 import { longType, nftType, tokenType, coinType } from "./serializer"
 import { sha256CompactKey } from "./utils";
 
 const serializeType = async <T extends {}>(
     type: avro.Type,
-    rules: JSONSchemaType<T> | null = null,
+    rules: ValidationCriteria = { anyOf: [] },
     query: ExtractObjectPaths<T>[] = [],
     unique: ExtractObjectPaths<T>[] = [],
 ) => {
-    const json = JSON.stringify({ schema: type.schema(), rules, query, unique });
+    const json = JSON.stringify({
+        schema: type.schema(),
+        rules,
+        query,
+        unique
+    });
     return {
         json,
         short: sha256CompactKey(json, 20),
@@ -23,7 +27,7 @@ const serializeType = async <T extends {}>(
 const deserializeType = <T extends {} = Record<string, string>>(type: string) => {
     const { schema, rules, query, unique } = JSON.parse(type) as {
         schema: avro.Schema,
-        rules: JSONSchemaType<T>,
+        rules: ValidationCriteria,
         query: ExtractObjectPaths<T>[],
         unique: ExtractObjectPaths<T>[],
     };
