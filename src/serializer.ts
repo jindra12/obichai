@@ -109,7 +109,7 @@ export const proofEnum = avro.Type.forSchema({
 export const floodMessageEnum = avro.Type.forSchema({
     type: "enum",
     name: "FloodMessageEnum",
-    symbols: ["REQUEST", "RESPONSE"],
+    symbols: ["REQUEST", "RESPONSE", "READY"],
 });
 
 export const coinType = avro.Type.forSchema({
