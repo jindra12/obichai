@@ -109,7 +109,7 @@ export const proofEnum = avro.Type.forSchema({
 export const floodMessageEnum = avro.Type.forSchema({
     type: "enum",
     name: "FloodMessageEnum",
-    symbols: ["REQUEST", "RESPONSE", "READY"],
+    symbols: ["REQUEST", "RESPONSE"],
 });
 
 export const coinType = avro.Type.forSchema({
@@ -242,12 +242,19 @@ export const signedMessage = avro.Type.forSchema({
     ],
 });
 
+export const networkResponse = avro.Type.forSchema({
+    type: "record",
+    name: "FloodResponse",
+    fields: [
+        { name: "messages", type: { type: "array", items: "bytes" } },
+    ],
+});
+
 export const floodMessage = avro.Type.forSchema({
     type: "record",
     name: "FloodMessage",
     fields: [
+        { name: "keys", type: { type: "array", items: hash } },
         { name: "type", type: floodMessageEnum },
-        { name: "message", type: "bytes" },
-        { name: "key", type: hash },
     ],
 });

@@ -174,8 +174,12 @@ export interface ValidationCriteria {
 };
 
 export interface FloodMessage {
-    type: "REQUEST" | "RESPONSE" | "READY";
-    key: Buffer;
+    type: "REQUEST" | "RESPONSE";
+    keys: Buffer[];
+}
+
+export interface NetworkResponse {
+    messages: Buffer[];
 }
 
 export type SignedMessage = ({
