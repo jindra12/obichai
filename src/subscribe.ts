@@ -88,6 +88,9 @@ const initialize = async () => {
         addFloodResponse: (key: string, data: () => Promise<Buffer>) => {
             floodMessages[key] = data;
         },
+        removeFloodResponse: (key: string) => {
+            delete floodMessages[key];
+        },
         waitForDirectMessage: (hash: Buffer) => {
             const key = hash.toString("base64");
             return new Promise<Buffer>((resolve) => {
