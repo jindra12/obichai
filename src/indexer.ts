@@ -1,6 +1,6 @@
 import { get, ExtractObjectPaths } from "typedots";
 import { Type } from "avsc";
-import { sha256CompactKey } from "./utils";
+import { compareBuffers, sha256CompactKey } from "./utils";
 import { Storage } from "./storage";
 import { getArgon } from "./argon";
 import { MainBlockType, MessageFormat, TransactionWithMetadata } from "./types";
@@ -150,16 +150,26 @@ export const storeMainBlocks = async (blocks: Buffer[]) => {
     const storage = Storage.instance;
     const hashes = await getBlockHashes(blocks);
     for (let i = 0; i < blocks.length; i++) {
-        await storage.setItem(hashes[i]!.toString("base64"), blocks[i]!.toString("base64"));
+        const block = blocks[i]!;
+        const blockType: MainBlockType = mainBlockType.fromBuffer(block);
+        const base64 = hashes[i]!.toString("base64");
+        await storage.setItem(sha256CompactKey(["MainBlock", blockType.id.toString()]), base64)
+        await storage.setItem(base64, block.toString("base64"));
     }
     return hashes;
+};
+
+export const getBlockById = async (blockIndex: bigint): Promise<MainBlockType> => {
+    const storage = Storage.instance;
+    const base64 = await storage.getItem(sha256CompactKey(["MainBlock", blockIndex.toString()])) as string;
+    return mainBlockType.fromBuffer(Buffer.from((await storage.getItem(base64)) as string, "base64"));
 };
 
 export const getLatestItem = async <T extends {}>(
     obj: Buffer,
     serializer: Type,
     properties: ExtractObjectPaths<T>[]
-): Promise<T> => {
+): Promise<{ latest: T, blockIndex: bigint, latestKey: string }> => {
     const withMetadataEntry: TransactionWithMetadata = transactionWithMetadata.fromBuffer(obj);
     const transactionEntry: MessageFormat = messageType.fromBuffer(withMetadataEntry.transaction);
     const deser: Record<string, object> = serializer.fromBuffer(transactionEntry.data);
@@ -170,35 +180,42 @@ export const getLatestItem = async <T extends {}>(
     const item = await Storage.instance.getItem(hash) as string;
     const withMetadata: TransactionWithMetadata = transactionWithMetadata.fromBuffer(Buffer.from(item, "base64"));
     const transactionWithObject: MessageFormat = messageType.fromBuffer(withMetadata.transaction);
-    return serializer.fromBuffer(transactionWithObject.data);
+    return {
+        latest: serializer.fromBuffer(transactionWithObject.data),
+        blockIndex: withMetadata.index,
+        latestKey,
+    };
 };
 
-const getItems = async <T extends {}>(key: string, serializer: Type): Promise<T[]> => {
+const getItems = async <T extends {}>(key: string, type: Buffer, serializer: Type): Promise<T[]> => {
     const length = BigInt((await Storage.instance.getItem(key)) || '0');
-    const promises: Promise<T>[] = [];
+    const promises: Promise<T | undefined>[] = [];
     for (let i = 0n; i < length; i++) {
-        promises.push(new Promise<T>(async (resolve) => {
+        promises.push(new Promise<T | undefined>(async (resolve) => {
             const itemHash = addIndexToKey(i, key);
             const hash = await Storage.instance.getItem(itemHash) as string;
             const buffer = Buffer.from(await Storage.instance.getItem(hash) as string, "base64");
             const withMetadata: TransactionWithMetadata = transactionWithMetadata.fromBuffer(buffer);
             const transactionWithObject: MessageFormat = messageType.fromBuffer(withMetadata.transaction);
+            if (compareBuffers(transactionWithObject.to, type.subarray(0, transactionWithObject.to.length))) {
+                resolve(undefined);
+            }
             resolve(serializer.fromBuffer(transactionWithObject.data));
         }));
     }
-    return Promise.all(promises);
+    return (await Promise.all(promises)).filter((value: T | undefined): value is T => Boolean(value)) as T[];
 };
 
 export const getItemsByIndex = async <T extends {}>(index: bigint, type: Buffer, serializer: Type): Promise<T[]> => {
     const indexKey = sha256CompactKey(
         Buffer.concat([Buffer.from(`0x${index.toString(16)}`), type])
     );
-    return await getItems(indexKey, serializer);
+    return await getItems(indexKey, type, serializer);
 };
 
 export const getItemsByBlock = async <T extends {}>(blockHash: Buffer, type: Buffer, serializer: Type): Promise<T[]> => {
     const indexKey = sha256CompactKey(
         Buffer.concat([blockHash, type])
     );
-    return await getItems(indexKey, serializer);
+    return await getItems(indexKey, type, serializer);
 };

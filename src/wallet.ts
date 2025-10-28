@@ -116,6 +116,8 @@ export const signMessage = async (message: Omit<MessageFormat, "difficulty">, pr
 
 export const verifySignature = async (signed: Buffer) => {
     const fromBuffer = signedMessage.fromBuffer(signed) as SignedMessage;
+    const difficulty = await getDifficulty("TRANSACTION");
+
     if (fromBuffer.type === "MANUAL") {
         const {
             r,
@@ -123,7 +125,6 @@ export const verifySignature = async (signed: Buffer) => {
             transaction,
             v,
         } = fromBuffer;
-        const difficulty = await getDifficulty("TRANSACTION");
         const [isValid] = await verifyArgon(transaction, "TRANSACTION", difficulty);
         const message: MessageFormat = messageType.fromBuffer(transaction);
         const msgHash = TypedDataUtils.eip712Hash(signUserReadable(message), SignTypedDataVersion.V4);
@@ -140,7 +141,6 @@ export const verifySignature = async (signed: Buffer) => {
             index,
             transaction,
         } = fromBuffer;
-        const difficulty = await getDifficulty("TRANSACTION");
         const [isValid] = await verifyArgon(transaction, "TRANSACTION", difficulty);
         const message: MessageFormat = messageType.fromBuffer(transaction);
         const {
@@ -153,7 +153,7 @@ export const verifySignature = async (signed: Buffer) => {
         } = await (await Types.instance).getTypeFromShort(message.to);
         const parsed = schema.fromBuffer(message.data);
         const storedRule = await getRule(message.from);
-        const latest = await getLatestItem<Record<string, object>>(message.data, schema, query);
+        const { latest } = await getLatestItem<Record<string, object>>(message.data, schema, query);
         const processed = processRule(latest, parsed, storedRule);
 
         return {

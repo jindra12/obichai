@@ -105,7 +105,7 @@ export const validateQueriesContent = async (queries: QueriesType) => {
         }
         for (let j = 0; j < results.queries.length; j++ ) {
             const result = results.queries[j]!;
-            const latest = await getLatestItem<Record<string, object>>(
+            const { latest } = await getLatestItem<Record<string, object>>(
                 result.transaction,
                 schema,
                 query,
