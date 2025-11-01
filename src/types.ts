@@ -28,11 +28,13 @@ export type NegativeProof = ({
     not: Buffer;
 };
 
+export type PositiveProof = {
+    proof: ProofPart[];
+    leaf: Buffer;
+};
+
 export type EitherProof = {
-    positive: {
-        proof: ProofPart[];
-        leaf: Buffer;
-    };
+    positive: PositiveProof;
     negative?: undefined;
 } | {
     positive?: undefined;
@@ -57,7 +59,10 @@ export interface PaddingFormat {
 
 export interface BlobHashType {
     type: Buffer;
-    merkle: Buffer;
+    merkle: {
+        query: Buffer;
+        includes: Buffer;
+    };
     bloom: Buffer;
     author: Buffer;
     difficulty: Buffer;

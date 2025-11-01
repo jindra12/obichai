@@ -1,5 +1,4 @@
 import { createHash } from "crypto";
-import { sha256 as sha256Async } from "hash-wasm";
 import { Throw } from "throw-expression";
 
 export const sha256CompactKey = (data: string | string[] | Buffer, bytes: number = 32) => {
@@ -15,12 +14,6 @@ export const sha256CompactKey = (data: string | string[] | Buffer, bytes: number
 
 export const sha256 = (data: string) => {
     return Buffer.from(createHash("sha256").update(data).digest("hex"), "hex");
-};
-
-export const blobSha256 = async (blobs: Buffer[]) => {
-    return (
-        await Promise.all(blobs.map(blob => sha256Async(blob)))
-    ).map(hash => Buffer.from(hash, "hex"));
 };
 
 export const compareBuffers = (aBuffer: Buffer, bBuffer: Buffer) => {

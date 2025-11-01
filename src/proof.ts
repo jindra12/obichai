@@ -2,11 +2,39 @@ import { getBlockById, getItemsByIndex, getLatestItem, makeIndex } from "./index
 import { Types } from "./dynamic-types";
 import { compareBuffers } from "./utils";
 import { verifyBloom } from "./bloom";
-import { EitherProof, NegativeProof } from "./types";
-import { createMerkleProof } from "./merkle";
+import { NegativeProof, PositiveProof } from "./types";
+import { createMerkleProof, verifyMerkleProof } from "./merkle";
 
-export const verifyInclusionProof = async () => {
-
+export const verifyInclusionProof = async (
+    negatives: NegativeProof[],
+    positive: PositiveProof,
+    blockIndex: bigint,
+    current: Buffer,
+    type: Buffer,
+    currentIndex: bigint,
+) => {
+    const instance = await Types.instance;
+    const {
+        query,
+        schema,
+    } = await instance.getType(type);
+    const indexedBlock = await getBlockById(blockIndex);
+    const blob = indexedBlock.blobs.find(blob => compareBuffers(blob.type, type) === 0);
+    if (!blob) {
+        return {
+            success: false,
+            message: "Blob not found",
+        };
+    }
+    if (!verifyMerkleProof(blob.merkle, { positive })) {
+        return {
+            success: false,
+            message: "Merkle proof inclusion failed",
+        };
+    }
+    for (let i = blockIndex + 1n; i < currentIndex; i++) {
+        
+    }
 };
 
 export const createInclusionProof = async (
@@ -37,5 +65,15 @@ export const createInclusionProof = async (
             proofs.push(negative);
         }
     }
-    
+    const currentItems = await getItemsByIndex(currentIndex, type, schema);
+    const indexes = currentItems.map(item => Buffer.from(makeIndex<Record<string, object>>(item, query), "base64"));
+    const positive = createMerkleProof(indexes, Buffer.from(latestKey, "base64")).positive;
+    if (!positive) {
+        throw Error("Created negative proof where it ought not to");
+    }
+    return {
+        negative: proofs,
+        positive,
+        blockIndex,
+    };
 };

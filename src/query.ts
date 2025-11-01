@@ -3,12 +3,12 @@ import { getArgon, verifyArgon } from "./argon";
 import { BIG_PADDING_COEFF, NUMBER_OF_BLOBS, NUMBER_OF_TRANSACTIONS, SMALL_PADDING_COEFF } from "./constants";
 import { getDifficulty } from "./difficulty";
 import { Types } from "./dynamic-types";
-import { getBlock, getLatestItem, pushItems } from "./indexer";
+import { getBlock, getLatestItem, makeIndex, pushItems } from "./indexer";
 import { createMerkle, verifyMerkleProof } from "./merkle";
 import { blobHashType, mainBlockType, messageType, paddingArray, paddingType } from "./serializer";
 import { Storage } from "./storage";
 import { MainBlockType, MultiBlockQueriesType, PaddingFormat, QueriesType, MessageFormat } from "./types";
-import { blobSha256, compareBuffers, sha256CompactKey } from "./utils";
+import { compareBuffers, sha256CompactKey } from "./utils";
 import { verifySignature } from "./wallet";
 import { get } from "typedots";
 import { isMessageValid } from "./validator";
@@ -143,6 +143,7 @@ export const validateQuery = async (
     queries: QueriesType,
     type: "partial" | "full"
 ) => {
+    const types = await Types.instance;
     if (!validateQueriesSignature(queries)) {
         return false;
     }
@@ -152,7 +153,11 @@ export const validateQuery = async (
         if (compareBuffers(query.type, blob.type) !== 0) {
             return false;
         }
-        const hashes = await blobSha256(query.queries.map(q => q.transaction));
+        const {
+            query: getter,
+            schema,
+        } = await types.getType(query.type);
+        const hashes = query.queries.map(q => Buffer.from(makeIndex<Record<string, object>>(schema.fromBuffer(q.transaction), getter), "base64"));
         const isFull = type === "full";
         if (isFull) {
             if (query.padding.length * SMALL_PADDING_COEFF + query.queries.length < NUMBER_OF_TRANSACTIONS) {
@@ -161,11 +166,11 @@ export const validateQuery = async (
             if (!await validatePadding(query.padding, block.prevHash, "PADDING_SMALL")) {
                 return false;
             }
-            if (compareBuffers(blob.merkle, createMerkle(hashes).root) !== 0) {
+            if (compareBuffers(blob.merkle.includes, createMerkle(hashes).root) !== 0) {
                 return false;
             }
         } else {
-            if (query.queries.some((q, i) => !verifyMerkleProof(blob.merkle, { positive: { leaf: hashes[i]!, proof: q.proof } }))) {
+            if (query.queries.some((q, i) => !verifyMerkleProof(blob.merkle.includes, { positive: { leaf: hashes[i]!, proof: q.proof } }))) {
                 return false;
             }
         }

@@ -54,12 +54,21 @@ export const paddingType = avro.Type.forSchema({
     ],
 });
 
+export const merkleType = avro.Type.forSchema({
+    type: "record",
+    name: "Merkle",
+    fields: [
+        { name: "query", type: hash },
+        { name: "includes", type: hash },
+    ],
+});
+
 export const blobHashType = avro.Type.forSchema({
     type: "record",
     name: "BlobHash",
     fields: [
         { name: "type", type: hash },
-        { name: "merkle", type: hash },
+        { name: "merkle", type: merkleType },
         { name: "author", type: address },
         { name: "difficulty", type: difficulty },
         { name: "bloom", type: "bytes" },
