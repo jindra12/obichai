@@ -18,6 +18,7 @@ export const verifyInclusionProof = async (
         query,
         schema,
     } = await instance.getType(type);
+    const latestKey = makeIndex<Record<string, object>>(schema.fromBuffer(current), query);
     const indexedBlock = await getBlockById(blockIndex);
     const blob = indexedBlock.blobs.find(blob => compareBuffers(blob.type, type) === 0);
     if (!blob) {
@@ -26,15 +27,35 @@ export const verifyInclusionProof = async (
             message: "Blob not found",
         };
     }
-    if (!verifyMerkleProof(blob.merkle, { positive })) {
+    if (!verifyMerkleProof(blob.merkle.query, { positive })) {
         return {
             success: false,
             message: "Merkle proof inclusion failed",
         };
     }
+    let negationIndex = 0;
     for (let i = blockIndex + 1n; i < currentIndex; i++) {
-        
+        const block = await getBlockById(i);
+        const blob = block.blobs.find(blob => compareBuffers(blob.type, type) === 0);
+        if (blob && verifyBloom(blob.bloom, latestKey)) {
+            const negative = negatives[negationIndex];
+            if (!negative) {
+                return {
+                    success: false,
+                    message: `Could not find ${i}th non-inclusion proof`,
+                };
+            }
+            const isNotIncluded = verifyMerkleProof(blob.merkle.query, { negative });
+            if (!isNotIncluded) {
+                return {
+                    success: false,
+                    message: "Non-inclusion proof failed",
+                };
+            }
+            negationIndex++;
+        }
     }
+    return { success: true };
 };
 
 export const createInclusionProof = async (

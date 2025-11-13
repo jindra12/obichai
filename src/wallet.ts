@@ -71,7 +71,7 @@ export const generateWallet = () => {
     };
 }
 
-export const signMessage = async (message: Omit<MessageFormat, "difficulty">, privOrProvider: Buffer | Eip1193Provider) => {
+export const signMessage = async (message: MessageFormat, privOrProvider: Buffer | Eip1193Provider) => {
     const full = await computeDifficulty(messageType.toBuffer(message), "TRANSACTION");
     if (!full) {
         Throw(`Hashing transaction failed`);

@@ -187,7 +187,6 @@ export const queryType = avro.Type.forSchema({
     name: "Query",
     fields: [
         { name: "transaction", type: "bytes" },
-        { name: "signature", type: signature },
         { name: "proof", type: { type: "array", items: proofType }, default: [] }
     ]
 });
@@ -199,6 +198,8 @@ export const typedQueries = avro.Type.forSchema({
         { name: "type", type: hash },
         { name: "padding", type: { type: "array", items: paddingType, default: [] } },
         { name: "queries", type: { type: "array", items: queryType } },
+        { name: "difficulty", type: "bytes" },
+        { name: "author", type: address },
     ],
 });
 

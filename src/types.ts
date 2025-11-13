@@ -146,7 +146,6 @@ export interface NftSaleType {
 
 export interface QueryType {
     proof: ProofPart[];
-    signature: Buffer;
     transaction: Buffer;
 }
 
@@ -154,6 +153,8 @@ export interface TypedQueries {
     type: Buffer;
     queries: QueryType[];
     padding: PaddingFormat[];
+    difficulty: Buffer;
+    author: Buffer;
 }
 
 export interface QueriesType {

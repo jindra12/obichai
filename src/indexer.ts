@@ -3,8 +3,8 @@ import { Type } from "avsc";
 import { compareBuffers, sha256CompactKey } from "./utils";
 import { Storage } from "./storage";
 import { getArgon } from "./argon";
-import { MainBlockType, MessageFormat, TransactionWithMetadata } from "./types";
-import { mainBlockType, messageType, transactionWithMetadata } from "./serializer";
+import { MainBlockType, MessageFormat, PaddingFormat, TransactionWithMetadata } from "./types";
+import { mainBlockType, messageType, paddingArray, transactionWithMetadata } from "./serializer";
 import { Throw } from "throw-expression";
 import { Types } from "./dynamic-types";
 
@@ -155,6 +155,10 @@ export const storeMainBlocks = async (blocks: Buffer[]) => {
         const base64 = hashes[i]!.toString("base64");
         await storage.setItem(sha256CompactKey(["MainBlock", blockType.id.toString()]), base64)
         await storage.setItem(base64, block.toString("base64"));
+        const latestBlock = await storage.getItem("latestBlock") as string;
+        if (!latestBlock) {
+            
+        }
     }
     return hashes;
 };
@@ -163,6 +167,31 @@ export const getBlockById = async (blockIndex: bigint): Promise<MainBlockType> =
     const storage = Storage.instance;
     const base64 = await storage.getItem(sha256CompactKey(["MainBlock", blockIndex.toString()])) as string;
     return mainBlockType.fromBuffer(Buffer.from((await storage.getItem(base64)) as string, "base64"));
+};
+
+export const getSmallPadding = async (blockHash: Buffer, type: Buffer) => {
+    const hash = sha256CompactKey(
+        Buffer.concat([
+            Buffer.from("padding", "utf-8"), 
+            blockHash,
+            type,
+        ])
+    );
+    return paddingArray.fromBuffer(
+        Buffer.from(await Storage.instance.getItem(hash) as string, "base64"),
+    );
+};
+
+
+export const storeSmallPadding = async (blockHash: Buffer, type: Buffer, padding: PaddingFormat[]) => {
+    const hash = sha256CompactKey(
+        Buffer.concat([
+            Buffer.from("padding", "utf-8"), 
+            blockHash,
+            type,
+        ])
+    );
+    await Storage.instance.setItem(hash, paddingArray.toBuffer(padding).toString("base64"));
 };
 
 export const getLatestItem = async <T extends {}>(
